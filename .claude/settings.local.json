@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(git checkout:*)",
+      "Bash(mkdir:*)",
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(find:*)",
+      "Bash(brew:*)",
+      "Bash(export:*)",
+      "Bash(git clone:*)",
+      "Bash(make:*)",
+      "Bash(createdb:*)",
+      "Bash(sudo make:*)",
+      "Bash(cp:*)",
+      "Bash(psql:*)",
+      "Bash(timeout:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}
