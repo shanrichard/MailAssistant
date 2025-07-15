@@ -65,6 +65,35 @@ class TaskConfig(BaseModel):
     daily_report_default_time: str = Field("08:00", description="Default daily report time")
 
 
+class AgentConfig(BaseModel):
+    """Agent configuration"""
+    # EmailProcessor Agent配置
+    email_processor_timeout: int = Field(300, description="EmailProcessor timeout in seconds")
+    email_processor_max_retries: int = Field(3, description="EmailProcessor max retries")
+    email_processor_default_model: str = Field("gpt-4o", description="EmailProcessor default model")
+    email_processor_temperature: float = Field(0.1, description="EmailProcessor temperature")
+    
+    # ConversationHandler Agent配置
+    conversation_handler_timeout: int = Field(180, description="ConversationHandler timeout in seconds")
+    conversation_handler_max_retries: int = Field(2, description="ConversationHandler max retries")
+    conversation_handler_default_model: str = Field("gpt-4o", description="ConversationHandler default model")
+    conversation_handler_temperature: float = Field(0.3, description="ConversationHandler temperature")
+    conversation_handler_session_timeout: int = Field(3600, description="ConversationHandler session timeout in seconds")
+    
+    # 通用Agent配置
+    agent_tool_timeout: int = Field(60, description="Agent tool execution timeout in seconds")
+    agent_max_concurrent_tasks: int = Field(5, description="Maximum concurrent agent tasks")
+    agent_memory_size: int = Field(50, description="Agent conversation memory size")
+    
+    # WebSocket配置
+    websocket_heartbeat_interval: int = Field(30, description="WebSocket heartbeat interval in seconds")
+    websocket_max_connections_per_user: int = Field(3, description="Maximum WebSocket connections per user")
+    
+    # 缓存配置
+    preference_cache_ttl: int = Field(300, description="User preference cache TTL in seconds")
+    report_cache_ttl: int = Field(900, description="Daily report cache TTL in seconds")
+
+
 class Settings(BaseSettings):
     """Application settings"""
     
@@ -109,6 +138,28 @@ class Settings(BaseSettings):
     task_retry_times: int = Field(3, env="TASK_RETRY_TIMES")
     task_retry_delay: int = Field(60, env="TASK_RETRY_DELAY")
     daily_report_default_time: str = Field("08:00", env="DAILY_REPORT_DEFAULT_TIME")
+    
+    # Agent配置
+    email_processor_timeout: int = Field(300, env="EMAIL_PROCESSOR_TIMEOUT")
+    email_processor_max_retries: int = Field(3, env="EMAIL_PROCESSOR_MAX_RETRIES")
+    email_processor_default_model: str = Field("gpt-4o", env="EMAIL_PROCESSOR_DEFAULT_MODEL")
+    email_processor_temperature: float = Field(0.1, env="EMAIL_PROCESSOR_TEMPERATURE")
+    
+    conversation_handler_timeout: int = Field(180, env="CONVERSATION_HANDLER_TIMEOUT")
+    conversation_handler_max_retries: int = Field(2, env="CONVERSATION_HANDLER_MAX_RETRIES")
+    conversation_handler_default_model: str = Field("gpt-4o", env="CONVERSATION_HANDLER_DEFAULT_MODEL")
+    conversation_handler_temperature: float = Field(0.3, env="CONVERSATION_HANDLER_TEMPERATURE")
+    conversation_handler_session_timeout: int = Field(3600, env="CONVERSATION_HANDLER_SESSION_TIMEOUT")
+    
+    agent_tool_timeout: int = Field(60, env="AGENT_TOOL_TIMEOUT")
+    agent_max_concurrent_tasks: int = Field(5, env="AGENT_MAX_CONCURRENT_TASKS")
+    agent_memory_size: int = Field(50, env="AGENT_MEMORY_SIZE")
+    
+    websocket_heartbeat_interval: int = Field(30, env="WEBSOCKET_HEARTBEAT_INTERVAL")
+    websocket_max_connections_per_user: int = Field(3, env="WEBSOCKET_MAX_CONNECTIONS_PER_USER")
+    
+    preference_cache_ttl: int = Field(300, env="PREFERENCE_CACHE_TTL")
+    report_cache_ttl: int = Field(900, env="REPORT_CACHE_TTL")
     
     class Config:
         env_file = ".env"
@@ -177,6 +228,31 @@ class Settings(BaseSettings):
             retry_times=self.task_retry_times,
             retry_delay=self.task_retry_delay,
             daily_report_default_time=self.daily_report_default_time
+        )
+    
+    @property
+    def agents(self) -> AgentConfig:
+        return AgentConfig(
+            email_processor_timeout=self.email_processor_timeout,
+            email_processor_max_retries=self.email_processor_max_retries,
+            email_processor_default_model=self.email_processor_default_model,
+            email_processor_temperature=self.email_processor_temperature,
+            
+            conversation_handler_timeout=self.conversation_handler_timeout,
+            conversation_handler_max_retries=self.conversation_handler_max_retries,
+            conversation_handler_default_model=self.conversation_handler_default_model,
+            conversation_handler_temperature=self.conversation_handler_temperature,
+            conversation_handler_session_timeout=self.conversation_handler_session_timeout,
+            
+            agent_tool_timeout=self.agent_tool_timeout,
+            agent_max_concurrent_tasks=self.agent_max_concurrent_tasks,
+            agent_memory_size=self.agent_memory_size,
+            
+            websocket_heartbeat_interval=self.websocket_heartbeat_interval,
+            websocket_max_connections_per_user=self.websocket_max_connections_per_user,
+            
+            preference_cache_ttl=self.preference_cache_ttl,
+            report_cache_ttl=self.report_cache_ttl
         )
 
 

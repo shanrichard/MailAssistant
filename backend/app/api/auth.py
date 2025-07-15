@@ -312,3 +312,38 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"
         )
+
+async def get_current_user_from_token(token: str, db: Session = None) -> User:
+    """从token获取当前用户（用于WebSocket认证）"""
+    if not db:
+        db = next(get_db())
+        
+    try:
+        # Verify token
+        payload = jwt_manager.verify_token(token)
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+        
+        # Get user
+        user_id = payload.get("sub")
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+            )
+            
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Token verification failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token verification failed"
+        )

@@ -1,7 +1,7 @@
 """
 FastAPI main application
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 from .core.config import settings
 from .core.database import create_tables
 from .core.logging import get_logger
-from .api import auth
+from .api import auth, gmail, scheduler, agents
+from .websockets.agent_ws import websocket_handler
 
 logger = get_logger(__name__)
 
@@ -28,10 +29,27 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to create database tables", error=str(e))
         raise
     
+    # Start task scheduler
+    try:
+        from .scheduler import start_scheduler
+        await start_scheduler()
+        logger.info("Task scheduler started successfully")
+    except Exception as e:
+        logger.error("Failed to start task scheduler", error=str(e))
+        raise
+    
     yield
     
     # Shutdown
     logger.info("Shutting down MailAssistant application")
+    
+    # Stop task scheduler
+    try:
+        from .scheduler import stop_scheduler
+        await stop_scheduler()
+        logger.info("Task scheduler stopped successfully")
+    except Exception as e:
+        logger.error("Failed to stop task scheduler", error=str(e))
 
 
 # Create FastAPI app
@@ -76,6 +94,15 @@ async def health_check():
 
 # Include routers
 app.include_router(auth.router, prefix="/api")
+app.include_router(gmail.router, prefix="/api")
+app.include_router(scheduler.router, prefix="/api")
+app.include_router(agents.router, prefix="/api")
+
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    """WebSocket endpoint for real-time communication"""
+    await websocket_handler(websocket, token)
 
 
 # Root endpoint
@@ -91,9 +118,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    # When running directly, use the app object
     uvicorn.run(
-        "app.main:app",
+        app,
         host=settings.host,
         port=settings.port,
-        reload=settings.debug
+        reload=False  # Disable reload when running directly
     )

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float, ForeignKey, JSON, Index
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float, ForeignKey, JSON, Index, Time
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -35,6 +35,11 @@ class UserPreference(Base):
     positive_feedback_count = Column(Integer, default=0)  # 正向反馈次数
     negative_feedback_count = Column(Integer, default=0)  # 负向反馈次数
     effectiveness_score = Column(Float, default=0.0)  # 有效性评分
+    
+    # 定时任务偏好（仅对preference_type='schedule'有效）
+    daily_report_time = Column(Time)  # 日报生成时间，默认09:00
+    timezone = Column(String(50))  # 用户时区，如'Asia/Shanghai'
+    auto_sync_enabled = Column(Boolean, default=True)  # 是否启用自动同步
     
     # 状态
     is_active = Column(Boolean, default=True)

@@ -22,6 +22,7 @@ class TaskType(str, Enum):
     DAILY_REPORT = "daily_report"
     BATCH_OPERATION = "batch_operation"
     PREFERENCE_UPDATE = "preference_update"
+    TOKEN_REFRESH = "token_refresh"
     CLEANUP = "cleanup"
 
 class TaskLog(Base):
@@ -54,6 +55,12 @@ class TaskLog(Base):
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=3)
     last_retry_at = Column(DateTime(timezone=True))
+    next_retry_at = Column(DateTime(timezone=True))  # 下次重试时间
+    
+    # 调度器相关
+    scheduler_job_id = Column(String(255))  # APScheduler任务ID
+    task_unique_key = Column(String(255))  # 幂等性唯一键
+    execution_node = Column(String(100))  # 执行节点标识
     
     # 资源使用
     memory_usage_mb = Column(Float)
@@ -96,6 +103,8 @@ class TaskLog(Base):
         Index('idx_task_logs_created_at', 'created_at'),
         Index('idx_task_logs_scheduled_at', 'scheduled_at'),
         Index('idx_task_logs_priority', 'priority_level'),
+        Index('idx_task_logs_unique_key', 'task_unique_key'),
+        Index('idx_task_logs_scheduler_job_id', 'scheduler_job_id'),
     )
 
     def __repr__(self):
