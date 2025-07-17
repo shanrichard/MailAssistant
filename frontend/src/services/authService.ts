@@ -11,13 +11,59 @@ class AuthService {
   /**
    * Google OAuth登录
    */
-  async googleLogin(authCode: string): Promise<string> {
-    const response = await apiClient.post<ApiResponse<{ token: string }>>(
-      API_ENDPOINTS.AUTH.GOOGLE,
-      { code: authCode }
-    );
-    
-    return response.data.token;
+  async googleLogin(authorizationResponse: string, sessionId: string): Promise<string> {
+    try {
+      const response = await apiClient.post<{ access_token: string; token_type: string; user: User }>(
+        API_ENDPOINTS.AUTH.GOOGLE,
+        { authorization_response: authorizationResponse, session_id: sessionId }
+      );
+      
+      return response.access_token;
+    } catch (error: any) {
+      console.error('Google login failed:', error);
+      
+      // 从axios错误中提取信息
+      let errorMessage = 'Authentication failed';
+      
+      if (error?.response?.data) {
+        const responseData = error.response.data;
+        
+        // 处理FastAPI的HTTPException格式
+        if (responseData.detail) {
+          if (typeof responseData.detail === 'object') {
+            // 处理我们自定义的详细错误格式
+            errorMessage = responseData.detail.message || responseData.detail.error || 'Authentication failed';
+            console.error('Detailed error info:', responseData.detail);
+          } else if (typeof responseData.detail === 'string') {
+            // 处理简单字符串错误
+            errorMessage = responseData.detail;
+          }
+        } else if (responseData.message) {
+          // 处理其他可能的错误格式
+          errorMessage = responseData.message;
+        }
+      } else if (error.message) {
+        // 处理非HTTP错误
+        errorMessage = error.message;
+      }
+      
+      // 检查是否是session相关错误
+      if (errorMessage.includes('Invalid or expired session')) {
+        console.log('Session expired, attempting auto-recovery...');
+        localStorage.removeItem('oauth_session_id');
+        throw new Error('OAuth session expired. Please try logging in again.');
+      }
+      
+      // 检查是否是invalid_grant错误
+      if (errorMessage.includes('invalid_grant')) {
+        console.log('Authorization code invalid or expired');
+        localStorage.removeItem('oauth_session_id');
+        throw new Error('Authorization code has expired or been used. Please try logging in again.');
+      }
+      
+      // 抛出包含详细信息的错误
+      throw new Error(errorMessage);
+    }
   }
 
   /**
@@ -74,26 +120,17 @@ class AuthService {
   }
 
   /**
-   * 生成Google OAuth URL
+   * 获取Google OAuth URL和session ID
    */
-  getGoogleAuthUrl(): string {
-    const baseUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-    const params = new URLSearchParams({
-      client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      response_type: 'code',
-      scope: [
-        'openid',
-        'email',
-        'profile',
-        'https://www.googleapis.com/auth/gmail.modify',
-        'https://www.googleapis.com/auth/gmail.readonly',
-      ].join(' '),
-      access_type: 'offline',
-      prompt: 'consent',
-    });
-
-    return `${baseUrl}?${params.toString()}`;
+  async getGoogleAuthUrl(): Promise<{ authUrl: string; sessionId: string }> {
+    const response = await apiClient.get<{ authorization_url: string; session_id: string }>(
+      API_ENDPOINTS.AUTH.GOOGLE_AUTH_URL
+    );
+    
+    return {
+      authUrl: response.authorization_url,
+      sessionId: response.session_id
+    };
   }
 
   /**

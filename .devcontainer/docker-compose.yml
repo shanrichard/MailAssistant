@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      # 挂载项目目录
+      - ..:/workspace:cached
+      # 挂载 Docker socket 以支持 Docker in Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 持久化扩展
+      - vscode-extensions:/home/vscode/.vscode-server/extensions
+      # 持久化 Python 包
+      - pip-cache:/home/vscode/.cache/pip
+      # 持久化 npm 包
+      - npm-cache:/home/vscode/.npm
+    # 保持容器运行
+    command: sleep infinity
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/mailassistant
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/workspace/backend
+    depends_on:
+      - db
+      - redis
+    networks:
+      - mailassistant-network
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./scripts/create-extensions.sql:/docker-entrypoint-initdb.d/02-extensions.sql
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mailassistant
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    networks:
+      - mailassistant-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - mailassistant-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 可选：用于管理数据库的 pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mailassistant.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - mailassistant-network
+    profiles:
+      - tools
+
+volumes:
+  postgres-data:
+  vscode-extensions:
+  pip-cache:
+  npm-cache:
+
+networks:
+  mailassistant-network:
+    driver: bridge

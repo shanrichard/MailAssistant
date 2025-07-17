@@ -1,6 +1,6 @@
 /**
  * Application Routes
- * 应用路由配置
+ * 应用路由配置 - 简化版
  */
 
 import React, { Suspense } from 'react';
@@ -11,13 +11,9 @@ import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 import useAuthStore from '../stores/authStore';
 
 // Lazy load components for better performance
-const Dashboard = React.lazy(() => import('../pages/Dashboard'));
-const EmailList = React.lazy(() => import('../pages/EmailList'));
-const EmailDetail = React.lazy(() => import('../pages/EmailDetail'));
 const DailyReport = React.lazy(() => import('../pages/DailyReport'));
 const Chat = React.lazy(() => import('../pages/Chat'));
 const Settings = React.lazy(() => import('../pages/Settings'));
-const Preferences = React.lazy(() => import('../pages/Preferences'));
 const Login = React.lazy(() => import('../pages/Login'));
 const AuthCallback = React.lazy(() => import('../pages/AuthCallback'));
 const NotFound = React.lazy(() => import('../pages/NotFound'));
@@ -61,26 +57,18 @@ const AppRoutes: React.FC = () => {
               </ProtectedRoute>
             }
           >
-            {/* Dashboard - Home page */}
-            <Route index element={<Dashboard />} />
-            <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
-            
-            {/* Email management */}
-            <Route path={ROUTES.EMAILS} element={<EmailList />} />
-            <Route path={ROUTES.EMAIL_DETAIL} element={<EmailDetail />} />
-            
-            {/* Daily report */}
+            {/* Daily report - Default page after login */}
+            <Route index element={<Navigate to={ROUTES.DAILY_REPORT} replace />} />
             <Route path={ROUTES.DAILY_REPORT} element={<DailyReport />} />
             
             {/* Chat interface */}
             <Route path={ROUTES.CHAT} element={<Chat />} />
             
-            {/* Settings and preferences */}
+            {/* Settings */}
             <Route path={ROUTES.SETTINGS} element={<Settings />} />
-            <Route path={ROUTES.PREFERENCES} element={<Preferences />} />
           </Route>
 
-          {/* Redirect root to daily report if authenticated */}
+          {/* Redirect root based on auth status */}
           <Route 
             path={ROUTES.HOME} 
             element={

@@ -1,0 +1,118 @@
+{
+  "name": "MailAssistant Dev Environment",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  
+  // 使用官方 Features
+  "features": {
+    // Python 支持
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.10"
+    },
+    // Node.js 支持
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    // Git 支持
+    "ghcr.io/devcontainers/features/git:1": {},
+    // GitHub CLI
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Docker in Docker (用于测试)
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  
+  // VS Code 设置
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreter": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.rulers": [80, 120],
+        "editor.tabSize": 4,
+        "[javascript]": {
+          "editor.tabSize": 2
+        },
+        "[typescript]": {
+          "editor.tabSize": 2
+        },
+        "[typescriptreact]": {
+          "editor.tabSize": 2
+        },
+        "[json]": {
+          "editor.tabSize": 2
+        }
+      },
+      "extensions": [
+        // Python 扩展
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        // JavaScript/TypeScript 扩展
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        // React 扩展
+        "dsznajder.es7-react-js-snippets",
+        "burkeholland.simple-react-snippets",
+        // 数据库工具
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        // 其他有用的扩展
+        "eamodio.gitlens",
+        "christian-kohler.path-intellisense",
+        "formulahendry.auto-rename-tag",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker",
+        "mikestead.dotenv",
+        "usernamehw.errorlens",
+        "yzhang.markdown-all-in-one"
+      ]
+    }
+  },
+  
+  // 端口转发
+  "forwardPorts": [8000, 3000, 5432],
+  "portsAttributes": {
+    "8000": {
+      "label": "FastAPI Backend",
+      "onAutoForward": "notify",
+      "protocol": "https"
+    },
+    "3000": {
+      "label": "React Frontend",
+      "onAutoForward": "notify",
+      "protocol": "https"
+    },
+    "5432": {
+      "label": "PostgreSQL Database",
+      "onAutoForward": "silent"
+    }
+  },
+  
+  // 后创建命令
+  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
+  
+  // 后启动命令
+  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+  
+  // 环境变量
+  "remoteEnv": {
+    "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/mailassistant",
+    "PYTHONPATH": "/workspace/backend",
+    "NODE_ENV": "development"
+  },
+  
+  // 用户设置
+  "remoteUser": "vscode",
+  
+  // 挂载设置
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
+  ],
+  
+  // 运行参数
+  "runArgs": ["--network=host"]
+}

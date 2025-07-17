@@ -43,7 +43,7 @@ class AppConfig(BaseModel):
     name: str = Field("MailAssistant", description="Application name")
     version: str = Field("1.0.0", description="Application version")
     debug: bool = Field(False, description="Debug mode")
-    host: str = Field("0.0.0.0", description="Server host")
+    host: str = Field("127.0.0.1", description="Server host")
     port: int = Field(8000, description="Server port")
 
 
@@ -124,7 +124,7 @@ class Settings(BaseSettings):
     app_name: str = Field("MailAssistant", env="APP_NAME")
     app_version: str = Field("1.0.0", env="APP_VERSION")
     debug: bool = Field(False, env="DEBUG")
-    host: str = Field("0.0.0.0", env="HOST")
+    host: str = Field("127.0.0.1", env="HOST")
     port: int = Field(8000, env="PORT")
     
     # Redis
@@ -165,6 +165,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # 忽略额外的环境变量
     
     @property
     def database(self) -> DatabaseConfig:

@@ -30,7 +30,6 @@
       "Bash(PYTHONPATH=/Users/shanjingxiang/projects/MailAssistant python -c \"\nimport os\nimport sys\nsys.path.insert(0, ''/Users/shanjingxiang/projects/MailAssistant'')\nfrom dotenv import load_dotenv\nload_dotenv(''/Users/shanjingxiang/projects/MailAssistant/.env'')\n\n# 测试调度器模块导入\ntry:\n    from backend.app.scheduler.scheduler_app import scheduler, start_scheduler, stop_scheduler\n    print(''✅ Scheduler module imports successfully'')\n    \n    from backend.app.scheduler.jobs import setup_user_jobs, create_daily_report_job\n    print(''✅ Jobs module imports successfully'')\n    \n    from backend.app.services.task_service import task_service\n    print(''✅ Task service imports successfully'')\n    \n    from backend.app.main import app\n    print(''✅ FastAPI app with scheduler loads successfully'')\n    \n    print(''📋 Available API routes:'')\n    for route in app.routes:\n        if hasattr(route, ''path'') and hasattr(route, ''methods''):\n            methods = list(route.methods) if route.methods else [''GET'']\n            if route.path.startswith(''/api/scheduler''):\n                print(f''  {methods} {route.path}'')\n    \nexcept Exception as e:\n    print(f''❌ Import failed: {e}'')\n    import traceback\n    traceback.print_exc()\n\")",
       "Bash(PYTHONPATH=/Users/shanjingxiang/projects/MailAssistant python -c \"\nimport os\nimport sys\nsys.path.insert(0, ''/Users/shanjingxiang/projects/MailAssistant'')\nfrom dotenv import load_dotenv\nload_dotenv(''/Users/shanjingxiang/projects/MailAssistant/.env'')\n\n# 测试调度器模块导入\ntry:\n    from backend.app.scheduler.scheduler_app import scheduler, start_scheduler, stop_scheduler\n    print(''✅ Scheduler module imports successfully'')\n    \n    from backend.app.scheduler.jobs import setup_user_jobs, create_daily_report_job\n    print(''✅ Jobs module imports successfully'')\n    \n    from backend.app.services.task_service import task_service\n    print(''✅ Task service imports successfully'')\n    \n    from backend.app.main import app\n    print(''✅ FastAPI app with scheduler loads successfully'')\n    \n    print(''📋 Available API routes:'')\n    for route in app.routes:\n        if hasattr(route, ''path'') and hasattr(route, ''methods''):\n            methods = list(route.methods) if route.methods else [''GET'']\n            if route.path.startswith(''/api/scheduler''):\n                print(''  {} {}''.format(methods, route.path))\n    \nexcept Exception as e:\n    print(''❌ Import failed: {}''.format(e))\n    import traceback\n    traceback.print_exc()\n\")",
       "Bash(PYTHONPATH=/Users/shanjingxiang/projects/MailAssistant python -c \"\nimport os\nimport sys\nsys.path.insert(0, ''/Users/shanjingxiang/projects/MailAssistant'')\nfrom dotenv import load_dotenv\nload_dotenv(''/Users/shanjingxiang/projects/MailAssistant/.env'')\n\n# 测试调度器模块导入\ntry:\n    from backend.app.scheduler.scheduler_app import scheduler, start_scheduler, stop_scheduler\n    print(''✅ Scheduler module imports successfully'')\n    \n    from backend.app.scheduler.jobs import setup_user_jobs, create_daily_report_job\n    print(''✅ Jobs module imports successfully'')\n    \n    from backend.app.services.task_service import task_service\n    print(''✅ Task service imports successfully'')\n    \n    from backend.app.main import app\n    print(''✅ FastAPI app with scheduler loads successfully'')\n    \n    print(''📋 Available scheduler API routes:'')\n    for route in app.routes:\n        if hasattr(route, ''path'') and hasattr(route, ''methods''):\n            methods = list(route.methods) if route.methods else [''GET'']\n            if route.path.startswith(''/api/scheduler''):\n                print(''  {} {}''.format(methods, route.path))\n    \nexcept Exception as e:\n    print(''❌ Import failed: {}''.format(e))\n    import traceback\n    traceback.print_exc()\n\")",
-      "Bash(PYTHONPATH=/Users/shanjingxiang/projects/MailAssistant python -c \"\nimport os\nimport sys\nsys.path.insert(0, ''/Users/shanjingxiang/projects/MailAssistant'')\nfrom dotenv import load_dotenv\nload_dotenv(''/Users/shanjingxiang/projects/MailAssistant/.env'')\n\n# 测试调度器模块导入\ntry:\n    from backend.app.scheduler.scheduler_app import scheduler, start_scheduler, stop_scheduler\n    print(''✅ Scheduler module imports successfully'')\n    \n    from backend.app.scheduler.jobs import setup_user_jobs, create_daily_report_job\n    print(''✅ Jobs module imports successfully'')\n    \n    from backend.app.services.task_service import task_service\n    print(''✅ Task service imports successfully'')\n    \n    from backend.app.main import app\n    print(''✅ FastAPI app with scheduler loads successfully'')\n    \n    print(''📋 Available scheduler API routes:'')\n    for route in app.routes:\n        if hasattr(route, ''path'') and hasattr(route, ''methods''):\n            methods = list(route.methods) if route.methods else [''GET'']\n            if route.path.startswith(''/api/scheduler''):\n                print(''  {} {}''.format(methods, route.path))\n    \nexcept Exception as e:\n    print(''❌ Import failed: {}''.format(e))\n    import traceback\n    traceback.print_exc()\n\")",
       "Bash(touch:*)",
       "Bash(rm:*)",
       "Bash(kill:*)",
@@ -46,7 +45,20 @@
       "Bash(npm run dev:*)",
       "Bash(npm test:*)",
       "Bash(gtimeout:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(nc:*)",
+      "Bash(sudo:*)",
+      "Bash(open:*)",
+      "Bash(mv:*)",
+      "Bash(true)",
+      "Bash(cat:*)",
+      "Bash(^C)",
+      "Bash(alembic stamp:*)",
+      "Bash(/Users/shanjingxiang/projects/MailAssistant/run_backend.sh:*)",
+      "Bash(./run_backend.sh:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

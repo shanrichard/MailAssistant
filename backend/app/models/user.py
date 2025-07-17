@@ -21,7 +21,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     google_id = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=True)
-    avatar_url = Column(String(500), nullable=True)
+    avatar_url = Column(Text, nullable=True)  # 使用Text类型，不限制长度
     
     # Encrypted Gmail OAuth tokens
     _encrypted_gmail_tokens = Column("encrypted_gmail_tokens", Text, nullable=True)

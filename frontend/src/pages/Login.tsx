@@ -9,13 +9,26 @@ import useAuthStore from '../stores/authStore';
 import { authService } from '../services/authService';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ROUTES } from '../config';
+import { OAuthRetryHandler } from '../utils/oauthRetry';
 
 const Login: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuthStore();
+  const [isStartingOAuth, setIsStartingOAuth] = React.useState(false);
 
-  const handleGoogleLogin = () => {
-    const authUrl = authService.getGoogleAuthUrl();
-    window.location.href = authUrl;
+  const handleGoogleLogin = async () => {
+    try {
+      setIsStartingOAuth(true);
+      
+      // 使用智能的session管理
+      const { sessionId, authUrl } = await OAuthRetryHandler.getOrCreateValidSession();
+      
+      console.log('Starting OAuth flow with session:', sessionId);
+      
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Failed to get Google Auth URL:', error);
+      setIsStartingOAuth(false);
+    }
   };
 
   // Redirect if already authenticated
@@ -40,10 +53,10 @@ const Login: React.FC = () => {
           <div>
             <button
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={isLoading || isStartingOAuth}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isLoading || isStartingOAuth ? (
                 <LoadingSpinner size="small" color="white" />
               ) : (
                 <>

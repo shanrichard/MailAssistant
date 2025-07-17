@@ -167,4 +167,13 @@ class EmailService {
 }
 
 export const emailService = new EmailService();
+
+// 导出常用方法以便测试和使用
+export const getDailyReport = (date?: string) => emailService.getDailyReport(date);
+export const generateDailyReport = (date?: string) => emailService.generateDailyReport(date);
+export const getEmails = (params?: EmailListParams) => emailService.getEmails(params);
+export const syncEmails = () => emailService.syncEmails();
+export const searchEmails = (query: string) => emailService.searchEmails(query);
+export const markAsRead = (emailIds: string[]) => emailService.markAsRead(emailIds);
+
 export default emailService;

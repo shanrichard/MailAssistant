@@ -18,6 +18,7 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true,  // 确保跨域请求携带cookies
     });
 
     this.setupInterceptors();
@@ -137,9 +138,18 @@ class ApiClient {
       
       switch (status) {
         case 400:
+          // 处理新的详细错误格式
+          if (data.detail && typeof data.detail === 'object') {
+            return {
+              code: 'BAD_REQUEST',
+              message: data.detail.message || data.detail.error || ERROR_MESSAGES.INVALID_DATA,
+              details: data.detail,
+              timestamp: new Date(),
+            };
+          }
           return {
             code: 'BAD_REQUEST',
-            message: data.message || ERROR_MESSAGES.INVALID_DATA,
+            message: data.message || data.detail || ERROR_MESSAGES.INVALID_DATA,
             details: data.details,
             timestamp: new Date(),
           };

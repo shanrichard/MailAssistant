@@ -29,47 +29,48 @@ export const appConfig: AppConfig = {
 export const API_ENDPOINTS = {
   // 认证相关
   AUTH: {
-    GOOGLE: '/auth/google',
-    REFRESH: '/auth/refresh',
-    LOGOUT: '/auth/logout',
-    ME: '/auth/me',
+    GOOGLE: '/api/auth/google',
+    GOOGLE_AUTH_URL: '/api/auth/google-auth-url',
+    REFRESH: '/api/auth/refresh',
+    LOGOUT: '/api/auth/logout',
+    ME: '/api/auth/me',
   },
   
   // Gmail集成
   GMAIL: {
-    EMAILS: '/gmail/emails',
-    SYNC: '/gmail/sync',
-    SEARCH: '/gmail/search',
-    MARK_READ: '/gmail/mark-read',
-    BULK_ACTION: '/gmail/bulk-action',
+    EMAILS: '/api/gmail/emails',
+    SYNC: '/api/gmail/sync',
+    SEARCH: '/api/gmail/search',
+    MARK_READ: '/api/gmail/mark-read',
+    BULK_ACTION: '/api/gmail/bulk-action',
   },
   
   // Agent交互
   AGENTS: {
-    EMAIL_PROCESSOR: '/agents/email-processor',
-    CONVERSATION: '/agents/conversation',
-    SESSION: '/agents/session',
+    EMAIL_PROCESSOR: '/api/agents/email-processor',
+    CONVERSATION: '/api/agents/conversation',
+    SESSION: '/api/agents/session',
   },
   
   // 任务和调度
   TASKS: {
-    LOGS: '/tasks/logs',
-    SCHEDULE: '/tasks/schedule',
-    STATUS: '/tasks/status',
+    LOGS: '/api/tasks/logs',
+    SCHEDULE: '/api/tasks/schedule',
+    STATUS: '/api/tasks/status',
   },
   
   // 报告
   REPORTS: {
-    DAILY: '/reports/daily',
-    GENERATE: '/reports/generate',
-    HISTORY: '/reports/history',
+    DAILY: '/api/reports/daily',
+    GENERATE: '/api/reports/generate',
+    HISTORY: '/api/reports/history',
   },
   
   // 用户偏好
   PREFERENCES: {
-    LIST: '/preferences',
-    UPDATE: '/preferences/update',
-    DELETE: '/preferences/delete',
+    LIST: '/api/preferences',
+    UPDATE: '/api/preferences/update',
+    DELETE: '/api/preferences/delete',
   },
   
   // 健康检查
@@ -233,13 +234,9 @@ export const VALIDATION_RULES = {
 // 路由路径
 export const ROUTES = {
   HOME: '/',
-  DASHBOARD: '/dashboard',
-  EMAILS: '/emails',
-  EMAIL_DETAIL: '/emails/:id',
   DAILY_REPORT: '/report',
   CHAT: '/chat',
   SETTINGS: '/settings',
-  PREFERENCES: '/preferences',
   LOGIN: '/login',
   CALLBACK: '/auth/callback',
   NOT_FOUND: '/404',

@@ -20,7 +20,8 @@ logger = get_logger(__name__)
 
 class GoogleAuthRequest(BaseModel):
     """Google OAuth authentication request"""
-    code: str
+    authorization_response: str
+    session_id: str
 
 
 class TokenResponse(BaseModel):
@@ -40,11 +41,11 @@ class AuthStatus(BaseModel):
 async def get_google_auth_url() -> Dict[str, str]:
     """Get Google OAuth authorization URL"""
     try:
-        auth_url, state = oauth_token_manager.get_authorization_url()
-        logger.info("Generated Google auth URL", state=state)
+        auth_url, session_id = oauth_token_manager.get_authorization_url()
+        logger.info("Generated Google auth URL", session_id=session_id)
         return {
             "authorization_url": auth_url,
-            "state": state
+            "session_id": session_id
         }
     except Exception as e:
         logger.error("Failed to generate Google auth URL", error=str(e))
@@ -61,8 +62,11 @@ async def google_oauth_callback(
 ) -> TokenResponse:
     """Handle Google OAuth callback"""
     try:
-        # Exchange code for tokens
-        oauth_result = oauth_token_manager.exchange_code_for_tokens(request.code)
+        # Exchange authorization_response for tokens
+        oauth_result = oauth_token_manager.exchange_code_for_tokens(
+            authorization_response=request.authorization_response,
+            session_id=request.session_id
+        )
         
         tokens = oauth_result['tokens']
         user_info = oauth_result['user_info']
@@ -115,10 +119,21 @@ async def google_oauth_callback(
         )
         
     except Exception as e:
-        logger.error("Google OAuth callback failed", error=str(e))
+        logger.error("Google OAuth callback failed", 
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    authorization_response=request.authorization_response,
+                    session_id=request.session_id)
+        # 返回更详细的错误信息用于调试
+        error_detail = {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "session_id": request.session_id,
+            "message": f"Authentication failed: {str(e)}"
+        }
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}"
+            detail=error_detail
         )
 
 
@@ -218,6 +233,7 @@ async def logout(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Logout failed"
         )
+
 
 
 @router.get("/status", response_model=AuthStatus)
@@ -347,3 +363,21 @@ async def get_current_user_from_token(token: str, db: Session = None) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token verification failed"
         )
+
+
+@router.get("/me")
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get current user information"""
+    return {
+        "data": {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "name": current_user.name,
+            "avatar_url": current_user.avatar_url,
+            "gmail_connected": current_user.gmail_tokens is not None,
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+            "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None
+        }
+    }

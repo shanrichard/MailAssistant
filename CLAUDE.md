@@ -1,8 +1,11 @@
 # MailAssistant Project - Claude Assistant Guide
 
+开发过程中注意严格遵守RPE人机协作协议
+
 ## 项目概述
 
 MailAssistant是一个基于LLM的智能邮件管家系统，帮助用户处理Gmail邮件，减少信息过载。项目采用FastAPI + LangGraph + React + PostgreSQL技术栈，实现完全基于AI Agent的邮件智能分析和管理。
+**开发模式：** 测试驱动开发（TDD）  如果有需要人类帮忙进行测试的内容，可以随时找我帮忙，比如点击浏览器之类的工作。
 
 ## 📁 项目文件结构
 
@@ -14,9 +17,7 @@ MailAssistant/
 ├── 需求文档.md                       # 🔴 核心需求文档 - 必读
 ├── 技术设计文档.md                   # 🔴 核心技术设计文档 - 必读
 ├── 
-├── .tasks/                           # 🔴 任务管理文件夹 - 必须参考
-│   ├── .gitkeep                     # Git保持目录
-│   └── 2025-07-11_1_mail_assistant_implementation.md  # 当前任务文件
+├── PROJECT_STATUS.md                 # 🔴 项目状态跟踪文档 - 必须参考
 ├── 
 ├── backend/                          # 后端服务
 │   ├── README.md                    # 后端启动和使用说明
@@ -109,16 +110,16 @@ MailAssistant/
 
 **所有技术实现都必须参考此文档，确保架构一致性。**
 
-### 3. .tasks/ 目录
+### 3. PROJECT_STATUS.md
 **重要性：⭐⭐⭐⭐⭐ 持续跟踪**
 
-包含项目任务管理文件：
-- `2025-07-11_1_mail_assistant_implementation.md` - 当前主要实施任务
-- 记录完整的实施计划和进度
-- 包含问题解决记录和状态追踪
-- 遵循RIPER-5工作流程
+项目状态跟踪文档：
+- 记录项目整体进度和已完成功能
+- 当前进行中的任务
+- 待完成的任务列表
+- 技术决策和问题解决记录
 
-**每次工作都必须更新任务文件，记录进展和问题。**
+**每次重要工作完成后都应更新此文档，保持项目状态透明。**
 
 ## 🔧 技术架构关键点
 
@@ -174,30 +175,41 @@ cd backend && python test_gmail_integration.py
 
 ## 📋 当前实施状态
 
-根据`.tasks/2025-07-11_1_mail_assistant_implementation.md`文件：
-
 **已完成：**
 1. ✅ 项目基础结构和虚拟环境
 2. ✅ PostgreSQL数据库和pgvector扩展
-3. ✅ 用户认证系统（Google OAuth2）
+3. ✅ 完整的用户认证系统
+   - Google OAuth2集成
+   - JWT token管理
+   - 数据库会话存储（解决热重载问题）
+   - 前端认证流程
 4. ✅ 数据库模型设计和创建
+   - 所有核心表结构
+   - OAuth会话表
+   - 加密token存储
 5. ✅ Gmail API集成和令牌管理
+   - Gmail服务集成
+   - Token自动刷新
+   - 加密存储
+6. ✅ 前端基础框架
+   - React + TypeScript + Tailwind CSS
+   - 登录/注册页面
+   - OAuth认证流程
+   - API客户端封装
+   - 基础路由和状态管理
 
 **进行中：**
-6. 🔄 构建可靠的定时任务系统
+7. 🔄 构建LangGraph Agent核心架构
+8. 🔄 开发Agent工具集
 
 **待完成：**
-7. 构建LangGraph Agent核心架构
-8. 开发Agent工具集
 9. 实现EmailProcessor和ConversationHandler节点
-10. 创建FastAPI后端API路由
+10. 完善FastAPI后端API路由
 11. 实现WebSocket支持
-12. 前端React应用开发
-13. 前后端集成
-14. 批量操作和对话式交互
-15. 日志系统和错误处理
-16. 测试和性能优化
-17. 部署配置和文档
+12. 前端功能页面开发（邮件列表、日报等）
+13. 批量操作和对话式交互
+14. 定时任务系统（scheduler）
+15. 生产环境部署配置
 
 ## 🔒 安全和配置
 
@@ -230,8 +242,8 @@ ANTHROPIC_API_KEY=your-anthropic-key
 
 1. **开始任何工作前**：
    - 阅读需求文档.md和技术设计文档.md
-   - 查看.tasks/目录中的当前任务状态
-   - 理解当前实施进度
+   - 查看PROJECT_STATUS.md了解当前进度
+   - 理解系统架构和设计理念
 
 2. **实施过程中**：
    - 严格按照技术设计文档的LLM-Driven架构实现
@@ -270,6 +282,26 @@ ANTHROPIC_API_KEY=your-anthropic-key
 - **智能理解**: 上下文感知和意图识别
 - **个性化服务**: 基于用户偏好的智能决策
 
+## 服务器管理记忆
+
+### 后端服务启动和管理
+- 彻底清理所有Python进程
+  ```
+  pkill -f python3; pkill -f uvicorn
+  ```
+- 使用简单的后台启动命令
+  ```
+  cd /Users/shanjingxiang/projects/MailAssistant
+  source .venv/bin/activate && python3 start_backend.py &
+  ```
+- 关键点：
+  - 确保先激活虚拟环境
+  - 使用&后台运行
+- 验证启动成功：
+  ```
+  curl http://127.0.0.1:8000/health
+  ```
+
 ---
 
-**重要提醒：在进行任何开发工作时，务必先参考需求文档.md、技术设计文档.md和.tasks/目录中的任务文件，确保理解项目目标和当前状态。**
+**重要提醒：在进行任何开发工作时，务必先参考需求文档.md、技术设计文档.md和PROJECT_STATUS.md，确保理解项目目标和当前状态。**

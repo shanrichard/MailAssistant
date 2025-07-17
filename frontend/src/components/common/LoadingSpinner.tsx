@@ -10,12 +10,14 @@ interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
   className?: string;
   color?: 'primary' | 'secondary' | 'white';
+  'data-testid'?: string;
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'medium',
   className,
   color = 'primary',
+  'data-testid': dataTestId,
 }) => {
   const sizeClasses = {
     small: 'h-4 w-4',
@@ -30,7 +32,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   return (
-    <div className={clsx('flex items-center justify-center', className)}>
+    <div className={clsx('flex items-center justify-center', className)} data-testid={dataTestId}>
       <svg
         className={clsx(
           'animate-spin',

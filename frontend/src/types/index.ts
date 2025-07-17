@@ -65,25 +65,16 @@ export interface UserPreference {
   updatedAt: Date;
 }
 
-// 日报相关类型
-export interface DailyReport {
-  id: string;
-  userId: string;
-  reportDate: Date;
-  totalEmails: number;
-  importantEmails: number;
-  categorySummary: CategorySummary[];
-  importantEmailsList: EmailMessage[];
-  summary: string;
-  generatedAt: Date;
-}
-
-export interface CategorySummary {
-  category: string;
-  count: number;
-  description: string;
-  priority: 'high' | 'medium' | 'low';
-}
+// 日报相关类型 - 从独立文件导出
+export type {
+  DailyReport,
+  DailyReportStats,
+  ImportantEmail,
+  CategorizedEmail,
+  EmailCategory,
+  DailyReportResponse,
+  MarkAsReadRequest
+} from './dailyReport';
 
 // Agent相关类型
 export interface AgentMessage {
