@@ -17,7 +17,11 @@
     // Git 支持
     "ghcr.io/devcontainers/features/git:1": {},
     // GitHub CLI
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // SSH 服务器支持 (用于 JetBrains Gateway)
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
   },
   
   // VS Code 设置
