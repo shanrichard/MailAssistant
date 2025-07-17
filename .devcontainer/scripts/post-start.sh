@@ -15,26 +15,26 @@ NC='\033[0m'
 
 # 1. 检查数据库连接
 echo -e "${YELLOW}Checking database connection...${NC}"
-if pg_isready -h localhost -p 5432 -U postgres > /dev/null 2>&1; then
+if pg_isready -h db -p 5432 -U postgres > /dev/null 2>&1; then
     echo -e "${GREEN}✓ PostgreSQL is running${NC}"
 else
     echo -e "${RED}✗ PostgreSQL is not running${NC}"
     echo "Please check your database container"
 fi
 
-# 2. 检查 Redis 连接
-echo -e "${YELLOW}Checking Redis connection...${NC}"
-if redis-cli -h localhost ping > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ Redis is running${NC}"
-else
-    echo -e "${RED}✗ Redis is not running${NC}"
-    echo "Please check your Redis container"
-fi
+# 2. 检查 Redis 连接（当前项目未使用 Redis）
+# echo -e "${YELLOW}Checking Redis connection...${NC}"
+# if redis-cli -h redis ping > /dev/null 2>&1; then
+#     echo -e "${GREEN}✓ Redis is running${NC}"
+# else
+#     echo -e "${RED}✗ Redis is not running${NC}"
+#     echo "Please check your Redis container"
+# fi
 
-# 3. 激活 Python 环境变量
+# 2. 激活 Python 环境变量
 export PYTHONPATH=/workspace/backend:$PYTHONPATH
 
-# 4. 显示当前分支和状态
+# 3. 显示当前分支和状态
 echo -e "${YELLOW}Git status:${NC}"
 cd /workspace
 if [ -d .git ]; then
@@ -48,7 +48,7 @@ if [ -d .git ]; then
     fi
 fi
 
-# 5. 检查环境变量
+# 4. 检查环境变量
 echo -e "${YELLOW}Checking environment configuration...${NC}"
 if [ -f /workspace/.env ]; then
     # 检查关键环境变量
@@ -63,12 +63,12 @@ else
     echo "Run: cp .env.example .env"
 fi
 
-# 6. 启动后台服务（可选）
+# 5. 启动后台服务（可选）
 # 如果需要自动启动某些服务，可以在这里添加
 # 例如：启动后台任务调度器
 # cd /workspace/backend && python -m app.scheduler &
 
-# 7. 显示快速启动命令
+# 6. 显示快速启动命令
 echo ""
 echo -e "${GREEN}Ready to develop!${NC}"
 echo ""
@@ -79,7 +79,7 @@ echo "  Run tests:      cd backend && pytest"
 echo "  Format code:    cd backend && black ."
 echo ""
 
-# 8. 检查是否有待运行的迁移
+# 7. 检查是否有待运行的迁移
 cd /workspace/backend
 if [ -f alembic.ini ]; then
     PENDING=$(alembic history 2>/dev/null | grep -c "(head)" || echo "0")

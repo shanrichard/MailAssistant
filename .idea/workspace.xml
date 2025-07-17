@@ -5,37 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="94577998-05fd-41e9-a0bb-fea421b2d66e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.devcontainer/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.devcontainer/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.devcontainer/devcontainer.json" beforeDir="false" afterPath="$PROJECT_DIR$/.devcontainer/devcontainer.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.devcontainer/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.devcontainer/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.devcontainer/scripts/post-create.sh" beforeDir="false" afterPath="$PROJECT_DIR$/.devcontainer/scripts/post-create.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.devcontainer/scripts/post-start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/.devcontainer/scripts/post-start.sh" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/user.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/user.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/oauth_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/oauth_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/ApiClient.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/LoadingSpinner.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/common/LoadingSpinner.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/layout/Sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/layout/Sidebar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/config/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/config/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/AuthCallback.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/AuthCallback.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/DailyReport.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/DailyReport.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Login.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Login.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/routes/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/routes/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/apiClient.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/apiClient.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/authService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/authService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/emailService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/emailService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/minimal_test.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/start_backend.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_backend.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_agents_simple.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_llm_driven_agents.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_simple.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/技术设计文档.md" beforeDir="false" afterPath="$PROJECT_DIR$/技术设计文档.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/需求文档.md" beforeDir="false" afterPath="$PROJECT_DIR$/需求文档.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,7 +35,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "task/mail__assistant__implementation__2025-07-11__1",
+    "git-widget-placeholder": "main",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -86,7 +61,7 @@
       <option name="presentableId" value="Default" />
       <updated>1752216120407</updated>
       <workItem from="1752216121431" duration="42263000" />
-      <workItem from="1752571735657" duration="31278000" />
+      <workItem from="1752571735657" duration="34157000" />
     </task>
     <servers />
   </component>

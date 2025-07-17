@@ -17,8 +17,6 @@ RUN apt-get update && apt-get install -y \
     make \
     # PostgreSQL 客户端
     postgresql-client \
-    # Redis 客户端
-    redis-tools \
     # 其他有用的工具
     curl \
     wget \
@@ -55,18 +53,11 @@ COPY frontend/package*.json /tmp/frontend/
 #         cd /tmp/frontend && npm ci --only=production; \
 #     fi
 
-# 安装开发工具
+# 开发工具已在 requirements.txt 中，不需要重复安装
+# 如需额外工具，可在此处添加
 RUN pip install --upgrade \
     ipython \
-    ipdb \
-    black \
-    flake8 \
-    pylint \
-    mypy \
-    pytest \
-    pytest-cov \
-    pytest-asyncio \
-    httpx
+    ipdb
 
 # 设置 Python 路径
 ENV PYTHONPATH=/workspace/backend:$PYTHONPATH
@@ -78,7 +69,7 @@ ENV PYTHONPATH=/workspace/backend:$PYTHONPATH
 # RUN chown -R vscode:vscode /workspace
 
 # 暴露端口
-EXPOSE 8000 3000 5432 6379 5050
+EXPOSE 8000 3000 5432 5050
 
 # 设置默认 shell
 SHELL ["/bin/bash", "-c"]
