@@ -88,11 +88,8 @@
     }
   },
   
-  // 容器创建时运行（用于依赖安装，可预构建）
-  "onCreateCommand": "bash .devcontainer/scripts/install-deps.sh",
-  
-  // 容器创建后运行（数据库迁移等）
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
+  // 容器创建后运行（依赖安装和数据库迁移，以 vscode 用户身份执行）
+  "postCreateCommand": "bash .devcontainer/scripts/install-deps.sh && bash .devcontainer/scripts/post-create.sh",
   
   // 容器启动后运行（健康检查等）
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",

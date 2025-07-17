@@ -10,10 +10,6 @@ services:
       - ..:/workspace:cached
       # 持久化扩展
       - vscode-extensions:/home/vscode/.vscode-server/extensions
-      # 持久化 Python 包
-      - pip-cache:/home/vscode/.cache/pip
-      # 持久化 npm 包
-      - npm-cache:/home/vscode/.npm
     # 保持容器运行
     command: sleep infinity
     environment:
@@ -79,8 +75,6 @@ services:
 volumes:
   postgres-data:
   vscode-extensions:
-  pip-cache:
-  npm-cache:
 
 networks:
   mailassistant-network:
