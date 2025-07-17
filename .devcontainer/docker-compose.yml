@@ -8,8 +8,6 @@ services:
     volumes:
       # 挂载项目目录
       - ..:/workspace:cached
-      # 挂载 Docker socket 以支持 Docker in Docker
-      - /var/run/docker.sock:/var/run/docker.sock
       # 持久化扩展
       - vscode-extensions:/home/vscode/.vscode-server/extensions
       # 持久化 Python 包
@@ -20,11 +18,9 @@ services:
     command: sleep infinity
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/mailassistant
-      - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/workspace/backend
     depends_on:
       - db
-      - redis
     networks:
       - mailassistant-network
 

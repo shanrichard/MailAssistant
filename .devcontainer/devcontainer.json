@@ -17,9 +17,7 @@
     // Git 支持
     "ghcr.io/devcontainers/features/git:1": {},
     // GitHub CLI
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    // Docker in Docker (用于测试)
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   
   // VS Code 设置

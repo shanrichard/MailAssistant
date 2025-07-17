@@ -34,8 +34,8 @@ if [ ! -f /workspace/.env ]; then
 # Database
 DATABASE_URL=postgresql://postgres:postgres@db:5432/mailassistant
 
-# Redis
-REDIS_URL=redis://redis:6379
+# Redis (Currently not used)
+# REDIS_URL=redis://redis:6379
 
 # Security
 SECRET_KEY=dev-secret-key-change-in-production
