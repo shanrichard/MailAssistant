@@ -52,5 +52,6 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 black==23.11.0
 flake8==6.1.0
-mypy==1.7.1redis==5.0.1
+mypy==1.7.1
+redis==5.0.1
 passlib==1.7.4
