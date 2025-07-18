@@ -11,8 +11,8 @@ interface EmailListItemProps {
 }
 
 const EmailListItem: React.FC<EmailListItemProps> = ({ email }) => {
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTime = (dateInput: string | Date) => {
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     

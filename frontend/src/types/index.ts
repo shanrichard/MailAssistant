@@ -5,6 +5,9 @@
 
 import { DailyReport } from './dailyReport';
 
+// 重新导出 DailyReport 类型
+export { DailyReport };
+
 // 用户相关类型
 export interface User {
   id: string;

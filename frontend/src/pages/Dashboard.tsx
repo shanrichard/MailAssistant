@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
           <div className="p-6">
             <p className="text-gray-600 mb-4">Today's email summary</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dailyReport.categorizedEmails.map((category: any) => (
+              {dailyReport.categorizedEmails.map((category) => (
                 <div key={category.categoryName} className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-medium text-gray-900">{category.categoryName}</h3>
                   <p className="text-sm text-gray-600">{category.emails.length} emails</p>
