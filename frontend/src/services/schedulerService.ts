@@ -46,8 +46,8 @@ class SchedulerService {
       auto_sync_enabled: true  // 默认启用自动同步
     };
     
-    // 使用 PUT 进行幂等更新
-    return apiClient.put<ScheduleSettings>('/scheduler/schedule', data);
+    // 使用 POST（后端实际使用POST而非PUT）
+    return apiClient.post<ScheduleSettings>('/scheduler/schedule', data);
   }
 
   /**

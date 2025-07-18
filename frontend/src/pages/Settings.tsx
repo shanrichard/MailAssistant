@@ -4,13 +4,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { schedulerService } from '../services/schedulerService';
 import { AppError } from '../types';
 import { showToast } from '../utils/toast';
 
 const Settings: React.FC = () => {
-  const navigate = useNavigate();
   const [reportTime, setReportTime] = useState<string>('09:00');
   const [timezone, setTimezone] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -100,19 +98,6 @@ const Settings: React.FC = () => {
     setError(null); // 清除错误提示
   };
 
-  // 手动触发日报生成
-  const handleTriggerReport = async () => {
-    try {
-      setLoading(true);
-      await schedulerService.triggerDailyReport();
-      showToast('日报生成任务已触发', 'success');
-    } catch (err) {
-      const error = err as AppError;
-      showToast('触发失败：' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loadingSettings) {
     return (
@@ -165,24 +150,6 @@ const Settings: React.FC = () => {
         <p className="text-xs text-gray-500 italic">
           如果您的系统时区发生变化，请重新保存设置以确保日报按时生成。
         </p>
-      </div>
-      
-      {/* 手动触发 */}
-      <div className="bg-white rounded-lg shadow p-6 max-w-2xl mt-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">手动生成日报</h2>
-        <p className="text-gray-600 mb-4">立即触发一次日报生成任务</p>
-        
-        <button
-          onClick={handleTriggerReport}
-          disabled={loading}
-          className={`px-6 py-2 rounded-md text-white font-medium transition-colors ${
-            loading
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-green-600 hover:bg-green-700'
-          }`}
-        >
-          {loading ? '处理中...' : '立即生成'}
-        </button>
       </div>
     </div>
   );

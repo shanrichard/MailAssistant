@@ -183,33 +183,6 @@ describe('Settings Page', () => {
     });
   });
 
-  test('manual trigger daily report', async () => {
-    mockSchedulerService.getSchedule.mockResolvedValue({
-      daily_report_time: '09:00',
-      timezone: 'Asia/Shanghai',
-      auto_sync_enabled: true
-    });
-    
-    mockSchedulerService.triggerDailyReport.mockResolvedValue({
-      task_id: 'task-123',
-      message: 'Daily report triggered'
-    });
-
-    renderWithRouter(<Settings />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('手动生成日报')).toBeInTheDocument();
-    });
-    
-    // Click trigger button
-    const triggerButton = screen.getByText('立即生成');
-    fireEvent.click(triggerButton);
-    
-    await waitFor(() => {
-      expect(mockSchedulerService.triggerDailyReport).toHaveBeenCalled();
-      expect(mockShowToast).toHaveBeenCalledWith('日报生成任务已触发', 'success');
-    });
-  });
 
   test('clears error when time is changed', async () => {
     mockSchedulerService.getSchedule.mockResolvedValue({
