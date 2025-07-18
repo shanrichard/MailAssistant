@@ -4,10 +4,10 @@
  */
 
 import React from 'react';
-import { Email } from '../../types/dailyReport';
+import { CategorizedEmail } from '../../types/dailyReport';
 
 interface EmailListItemProps {
-  email: Email;
+  email: CategorizedEmail;
 }
 
 const EmailListItem: React.FC<EmailListItemProps> = ({ email }) => {

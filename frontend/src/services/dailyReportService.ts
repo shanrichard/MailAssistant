@@ -11,7 +11,7 @@ import { DailyReport } from '../types/dailyReport';
  */
 export const getDailyReport = async (): Promise<DailyReport> => {
   const response = await apiClient.get<DailyReport>('/api/reports/daily');
-  return response.data;
+  return response;
 };
 
 /**
@@ -21,7 +21,7 @@ export const refreshDailyReport = async (): Promise<DailyReport> => {
   const response = await apiClient.post<DailyReport>('/api/agents/email-processor', {
     message: '请生成今天的邮件日报'
   });
-  return response.data;
+  return response;
 };
 
 /**
@@ -43,5 +43,5 @@ export const markCategoryAsRead = async (
       emailIds: emailIds
     }
   );
-  return response.data;
+  return response;
 };

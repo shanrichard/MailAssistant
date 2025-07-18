@@ -26,8 +26,8 @@ const ImportantEmails: React.FC<ImportantEmailsProps> = ({ emails }) => {
     setExpandedEmails(newExpanded);
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTime = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const timeStr = date.toLocaleTimeString('zh-CN', { 
       hour: '2-digit', 
       minute: '2-digit' 

@@ -3,6 +3,8 @@
  * 定义所有前端应用使用的TypeScript类型
  */
 
+import { DailyReport } from './dailyReport';
+
 // 用户相关类型
 export interface User {
   id: string;

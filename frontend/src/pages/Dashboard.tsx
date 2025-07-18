@@ -153,13 +153,13 @@ const Dashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">Today's Report</h2>
           </div>
           <div className="p-6">
-            <p className="text-gray-600 mb-4">{dailyReport.summary}</p>
+            <p className="text-gray-600 mb-4">Today's email summary</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dailyReport.categorySummary.map((category) => (
-                <div key={category.category} className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">{category.category}</h3>
-                  <p className="text-sm text-gray-600">{category.count} emails</p>
-                  <p className="text-sm text-gray-500 mt-1">{category.description}</p>
+              {dailyReport.categorizedEmails.map((category: any) => (
+                <div key={category.categoryName} className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900">{category.categoryName}</h3>
+                  <p className="text-sm text-gray-600">{category.emails.length} emails</p>
+                  <p className="text-sm text-gray-500 mt-1">{category.summary}</p>
                 </div>
               ))}
             </div>

@@ -234,9 +234,11 @@ export const VALIDATION_RULES = {
 // 路由路径
 export const ROUTES = {
   HOME: '/',
+  DASHBOARD: '/',
   DAILY_REPORT: '/report',
   CHAT: '/chat',
   SETTINGS: '/settings',
+  PREFERENCES: '/preferences',
   LOGIN: '/login',
   CALLBACK: '/auth/callback',
   NOT_FOUND: '/404',
