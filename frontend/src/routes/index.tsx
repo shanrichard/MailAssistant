@@ -58,27 +58,15 @@ const AppRoutes: React.FC = () => {
             }
           >
             {/* Daily report - Default page after login */}
-            <Route index element={<Navigate to={ROUTES.DAILY_REPORT} replace />} />
-            <Route path={ROUTES.DAILY_REPORT} element={<DailyReport />} />
+            <Route index element={<DailyReport />} />
+            <Route path={ROUTES.DAILY_REPORT.substring(1)} element={<DailyReport />} />
             
             {/* Chat interface */}
-            <Route path={ROUTES.CHAT} element={<Chat />} />
+            <Route path={ROUTES.CHAT.substring(1)} element={<Chat />} />
             
             {/* Settings */}
-            <Route path={ROUTES.SETTINGS} element={<Settings />} />
+            <Route path={ROUTES.SETTINGS.substring(1)} element={<Settings />} />
           </Route>
-
-          {/* Redirect root based on auth status */}
-          <Route 
-            path={ROUTES.HOME} 
-            element={
-              isAuthenticated ? (
-                <Navigate to={ROUTES.DAILY_REPORT} replace />
-              ) : (
-                <Navigate to={ROUTES.LOGIN} replace />
-              )
-            } 
-          />
 
           {/* 404 - Not found */}
           <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />

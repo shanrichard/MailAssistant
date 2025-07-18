@@ -74,7 +74,7 @@ class AuthService {
       API_ENDPOINTS.AUTH.ME
     );
     
-    return response.data;
+    return response.data ? response.data : response as unknown as User;
   }
 
   /**
@@ -85,7 +85,7 @@ class AuthService {
       API_ENDPOINTS.AUTH.REFRESH
     );
     
-    return response.data.token;
+    return response.data ? response.data.token : (response as any).token;
   }
 
   /**
