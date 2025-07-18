@@ -3,10 +3,8 @@
  * 定义所有前端应用使用的TypeScript类型
  */
 
-import { DailyReport } from './dailyReport';
-
-// 重新导出 DailyReport 类型
-export { DailyReport };
+// 从 dailyReport 文件导入类型以供本文件使用
+import type { DailyReport, EmailCategory } from './dailyReport';
 
 // 用户相关类型
 export interface User {

@@ -30,8 +30,8 @@ echo ""
 
 # 启动后端
 echo "🚀 启动后端服务..."
-cd /workspace
-python3 start_backend.py &
+cd /Users/shanjingxiang/projects/MailAssistant
+source .venv/bin/activate && python3 start_backend.py &
 BACKEND_PID=$!
 
 echo "  - 后端启动中... (PID: $BACKEND_PID)"
@@ -49,7 +49,7 @@ echo ""
 
 # 启动前端
 echo "🚀 启动前端服务..."
-cd /workspace/frontend
+cd /Users/shanjingxiang/projects/MailAssistant/frontend
 npm start &
 FRONTEND_PID=$!
 
