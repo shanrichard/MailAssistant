@@ -59,7 +59,9 @@
       "Bash(/Users/shanjingxiang/projects/MailAssistant/run_backend.sh:*)",
       "Bash(./run_backend.sh:*)",
       "WebFetch(domain:github.com)",
-      "Bash(/workspace/restart_services.sh:*)"
+      "Bash(/workspace/restart_services.sh:*)",
+      "Bash(./restart_services.sh)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

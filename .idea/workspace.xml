@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="94577998-05fd-41e9-a0bb-fea421b2d66e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/EmailListItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/dailyReport/EmailListItem.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/config/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/config/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Settings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Settings.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -42,7 +38,7 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "ts.external.directory.path": "/workspace/frontend/node_modules/typescript/lib",
+    "ts.external.directory.path": "/Users/shanjingxiang/projects/MailAssistant/frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>

@@ -32,7 +32,7 @@ class SchedulerService {
    * 获取用户的调度设置
    */
   async getSchedule(): Promise<ScheduleSettings> {
-    return apiClient.get<ScheduleSettings>('/scheduler/schedule');
+    return apiClient.get<ScheduleSettings>('/api/scheduler/schedule');
   }
 
   /**
@@ -47,14 +47,14 @@ class SchedulerService {
     };
     
     // 使用 POST（后端实际使用POST而非PUT）
-    return apiClient.post<ScheduleSettings>('/scheduler/schedule', data);
+    return apiClient.post<ScheduleSettings>('/api/scheduler/schedule', data);
   }
 
   /**
    * 禁用定时任务
    */
   async disableSchedule(): Promise<{ message: string }> {
-    return apiClient.post<{ message: string }>('/scheduler/schedule/disable');
+    return apiClient.post<{ message: string }>('/api/scheduler/schedule/disable');
   }
 
   /**
@@ -62,7 +62,7 @@ class SchedulerService {
    */
   async triggerDailyReport(): Promise<{ task_id: string; message: string }> {
     return apiClient.post<{ task_id: string; message: string }>(
-      '/scheduler/trigger/daily_report'
+      '/api/scheduler/trigger/daily_report'
     );
   }
 
@@ -71,7 +71,7 @@ class SchedulerService {
    */
   async triggerEmailSync(): Promise<{ task_id: string; message: string }> {
     return apiClient.post<{ task_id: string; message: string }>(
-      '/scheduler/trigger/sync_emails'
+      '/api/scheduler/trigger/sync_emails'
     );
   }
 
@@ -86,7 +86,7 @@ class SchedulerService {
     if (taskType) params.append('task_type', taskType);
     params.append('limit', limit.toString());
     
-    return apiClient.get<TaskHistory[]>(`/scheduler/history?${params.toString()}`);
+    return apiClient.get<TaskHistory[]>(`/api/scheduler/history?${params.toString()}`);
   }
 
   /**
@@ -101,7 +101,7 @@ class SchedulerService {
       task_type: string;
     }>;
   }> {
-    return apiClient.get('/scheduler/health');
+    return apiClient.get('/api/scheduler/health');
   }
 
   /**
