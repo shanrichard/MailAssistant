@@ -17,7 +17,7 @@ const MainLayout: React.FC = () => {
   // Connect WebSocket when layout mounts
   React.useEffect(() => {
     if (user) {
-      connectWebSocket();
+    connectWebSocket();
     }
 
     return () => {
