@@ -1,18 +1,64 @@
 """
 EmailProcessor Agent - 基于LLM-Driven架构的邮件处理代理
 """
-from typing import List
+from typing import List, Dict
+import threading
+from dataclasses import dataclass
 from langchain.tools import Tool
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.schema import SystemMessage
 
 from .base_agent import BaseAgent
 from .email_tools import create_email_tools
 from ..core.config import settings
 from ..core.logging import get_logger
+from .llm_provider import llm_provider_manager
+from ..config.agent_prompts import EMAIL_PROCESSOR_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
 
+@dataclass
+class AgentCapability:
+    """Agent能力描述"""
+    name: str
+    display_name: str
+    description: str
+    icon: str
+    category: str
+    enabled: bool = True
+
 class EmailProcessorAgent(BaseAgent):
     """邮件处理Agent - 无状态，专注于邮件分析和日报生成"""
+    
+    # 类级别 LLM 缓存
+    _llm_cache = {}
+    _cache_lock = threading.Lock()
+    
+    def _create_llm(self):
+        """创建或获取缓存的LLM实例"""
+        cache_key = (
+            settings.llm.default_provider,
+            self._get_default_model(),
+            self._get_temperature()
+        )
+        
+        with self._cache_lock:
+            if cache_key not in self._llm_cache:
+                self._llm_cache[cache_key] = llm_provider_manager.get_llm(
+                    provider=cache_key[0],
+                    model=cache_key[1],
+                    temperature=cache_key[2]
+                )
+                logger.info(f"Created new LLM instance for cache key: {cache_key}")
+            
+            return self._llm_cache[cache_key]
+    
+    @classmethod
+    def clear_llm_cache(cls):
+        """清理LLM缓存"""
+        with cls._cache_lock:
+            cls._llm_cache.clear()
+            logger.info("EmailProcessorAgent LLM cache cleared")
     
     def _create_tools(self) -> List[Tool]:
         """创建邮件处理工具集"""
@@ -33,53 +79,93 @@ class EmailProcessorAgent(BaseAgent):
         return settings.agents.email_processor_temperature
     
     def _build_system_prompt(self):
-        """构建EmailProcessor特定的系统prompt"""
+        """构建EmailProcessor特定的系统prompt - 使用函数式方案避免修改父类"""
         base_prompt = super()._build_system_prompt()
         
-        # 修改系统消息，添加EmailProcessor特定的指导
-        messages = base_prompt.messages.copy()
+        # 获取基础系统消息内容
+        base_system_content = base_prompt.messages[0].content if hasattr(base_prompt.messages[0], 'content') else base_prompt.messages[0].prompt.template
         
-        # 更新系统消息
-        system_message = messages[0]
-        enhanced_system_message = f"""{system_message.prompt.template}
-
-你是专门负责邮件分析和处理的智能代理。你的专业领域包括：
-
-1. 邮件内容分析和重要性评估
-2. 邮件分类和情感分析
-3. 商业机会识别
-4. 日报生成和数据统计
-5. 批量邮件处理和同步
-
-工作原则：
-- 始终基于用户偏好进行邮件重要性判断
-- 提供详细的分析理由和建议
-- 高效处理大量邮件数据
-- 生成结构化、有价值的报告内容
-- 识别并突出重要信息和机会
-
-可用工具说明：
-- sync_emails: 同步Gmail邮件到本地
-- analyze_email: 深度分析单封邮件
-- generate_daily_report: 生成每日邮件报告
-- batch_analyze_emails: 批量分析邮件
-
-请根据用户请求，智能选择合适的工具组合来完成任务。"""
+        # 使用外部化的 prompt
+        email_processor_instructions = EMAIL_PROCESSOR_SYSTEM_PROMPT
         
-        # 更新系统消息模板
-        messages[0].prompt.template = enhanced_system_message
-        
-        return base_prompt
+        # 使用函数式方法构建新的prompt，不修改原始对象
+        return ChatPromptTemplate.from_messages([
+            ("system", "{base_system}\n\n{email_instructions}"),
+            MessagesPlaceholder(variable_name="chat_history", optional=True),
+            ("user", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad")
+        ]).partial(
+            base_system=base_system_content,
+            email_instructions=email_processor_instructions
+        )
     
-    def get_capabilities(self) -> List[str]:
-        """获取Agent能力列表"""
+    def get_capabilities(self) -> List[AgentCapability]:
+        """获取结构化的Agent能力列表"""
         return [
-            "email_synchronization",     # 邮件同步
-            "email_analysis",            # 邮件分析
-            "daily_report_generation",   # 日报生成
-            "batch_processing",          # 批量处理
-            "importance_assessment",     # 重要性评估
-            "business_opportunity_detection",  # 商业机会识别
-            "content_summarization",     # 内容摘要
-            "sentiment_analysis"         # 情感分析
+            AgentCapability(
+                name="email_synchronization",
+                display_name="邮件同步",
+                description="从Gmail同步邮件到本地数据库",
+                icon="sync",
+                category="data_management"
+            ),
+            AgentCapability(
+                name="email_analysis",
+                display_name="邮件分析",
+                description="使用AI分析邮件内容和重要性",
+                icon="analytics",
+                category="intelligence"
+            ),
+            AgentCapability(
+                name="daily_report_generation",
+                display_name="日报生成",
+                description="生成每日邮件摘要报告",
+                icon="description",
+                category="reporting"
+            ),
+            AgentCapability(
+                name="batch_processing",
+                display_name="批量处理",
+                description="批量分析和处理邮件",
+                icon="folder_open",
+                category="automation"
+            ),
+            AgentCapability(
+                name="importance_assessment",
+                display_name="重要性评估",
+                description="基于用户偏好评估邮件重要性",
+                icon="priority_high",
+                category="intelligence"
+            ),
+            AgentCapability(
+                name="business_opportunity_detection",
+                display_name="商机识别",
+                description="识别邮件中的商业机会",
+                icon="business_center",
+                category="intelligence"
+            ),
+            AgentCapability(
+                name="content_summarization",
+                display_name="内容摘要",
+                description="生成邮件内容的简洁摘要",
+                icon="summarize",
+                category="intelligence"
+            ),
+            AgentCapability(
+                name="sentiment_analysis",
+                display_name="情感分析",
+                description="分析邮件的情感倾向",
+                icon="sentiment_satisfied",
+                category="intelligence"
+            )
         ]
+    
+    def get_capabilities_by_category(self) -> Dict[str, List[AgentCapability]]:
+        """按类别组织能力"""
+        capabilities = self.get_capabilities()
+        categorized = {}
+        for cap in capabilities:
+            if cap.category not in categorized:
+                categorized[cap.category] = []
+            categorized[cap.category].append(cap)
+        return categorized

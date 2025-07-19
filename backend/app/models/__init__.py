@@ -10,6 +10,8 @@ from .daily_report import DailyReport
 from .task_log import TaskLog, TaskStatus, TaskType
 from .oauth_session import OAuthSession, SessionStatus
 from .conversation import ConversationMessage
+from .daily_report_log import DailyReportLog
+from .analysis_audit_log import AnalysisAuditLog
 
 __all__ = [
     "User",
@@ -23,4 +25,6 @@ __all__ = [
     "OAuthSession",
     "SessionStatus",
     "ConversationMessage",
+    "DailyReportLog",
+    "AnalysisAuditLog",
 ]
