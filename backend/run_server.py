@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Server startup script for MailAssistant backend
 """
@@ -17,14 +18,15 @@ load_dotenv(project_root / '.env')
 # Import and run the app
 if __name__ == "__main__":
     import uvicorn
-    from backend.app.main import app
+    from backend.app.main import socket_app
     
     print("🚀 Starting MailAssistant backend server...")
     print(f"📁 Project root: {project_root}")
     print(f"🔧 Environment loaded from: {project_root / '.env'}")
+    print(f"🔌 Socket.IO enabled for real-time communication")
     
     uvicorn.run(
-        app,
+        socket_app,
         host="0.0.0.0",
         port=8000,
         reload=True,

@@ -1,64 +1,47 @@
 /**
  * Chat Store
- * 聊天状态管理
+ * 聊天状态管理 - 支持LangGraph流式响应和工具调用可视化
  */
 
 import { create } from 'zustand';
-import { ChatStore, AgentMessage, WebSocketMessage, AppError } from '../types';
-import { chatService } from '../services/chatService';
-import { APP_CONSTANTS } from '../config';
+import { io, Socket } from 'socket.io-client';
+import { v4 as uuidv4 } from 'uuid';
+import { ChatStore, ChatMessage, WebSocketMessage, ToolCall } from '../types';
+import { getToken } from '../utils/auth';
 
-interface ExtendedChatStore extends ChatStore {
-  // Additional state
-  isTyping: boolean;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
-  error: AppError | null;
-  activeAgent: 'email_processor' | 'conversation_handler' | null;
-  
-  // Additional actions
-  setTyping: (typing: boolean) => void;
-  setConnectionStatus: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
-  setError: (error: AppError | null) => void;
-  setActiveAgent: (agent: 'email_processor' | 'conversation_handler' | null) => void;
-  connectWebSocket: () => void;
-  disconnectWebSocket: () => void;
-  sendMessageToAgent: (content: string, agentType: 'email_processor' | 'conversation_handler') => Promise<void>;
-  handleWebSocketMessage: (message: WebSocketMessage) => void;
-  retryConnection: () => void;
-  clearError: () => void;
-  clearSession: () => void;
-  getMessageHistory: (limit?: number) => AgentMessage[];
-  deleteMessage: (messageId: string) => void;
-  editMessage: (messageId: string, newContent: string) => void;
+interface ChatStoreState extends ChatStore {
+  socket: Socket | null;
+  streamingMessageId: string | null;
+  pendingToolCalls: Map<string, ToolCall>;
 }
 
-const useChatStore = create<ExtendedChatStore>()((set, get) => ({
-  // Initial state
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+const useChatStore = create<ChatStoreState>((set, get) => ({
   messages: [],
-  currentSession: null,
+  currentSession: uuidv4(),
   isConnected: false,
   isLoading: false,
-  isTyping: false,
-  connectionStatus: 'disconnected',
-  error: null,
-  activeAgent: null,
+  socket: null,
+  streamingMessageId: null,
+  pendingToolCalls: new Map(),
 
-  // Basic actions
-  addMessage: (message: AgentMessage) => {
-    const { messages } = get();
-    set({ messages: [...messages, message] });
+  addMessage: (message: ChatMessage) => {
+    set((state) => ({
+      messages: [...state.messages, message]
+    }));
   },
 
-  updateMessage: (id: string, updates: Partial<AgentMessage>) => {
-    const { messages } = get();
-    const updatedMessages = messages.map(msg =>
-      msg.id === id ? { ...msg, ...updates } : msg
-    );
-    set({ messages: updatedMessages });
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => {
+    set((state) => ({
+      messages: state.messages.map(msg =>
+        msg.id === id ? { ...msg, ...updates } : msg
+      )
+    }));
   },
 
   clearMessages: () => {
-    set({ messages: [] });
+    set({ messages: [], currentSession: uuidv4() });
   },
 
   setSession: (sessionId: string | null) => {
@@ -73,239 +56,199 @@ const useChatStore = create<ExtendedChatStore>()((set, get) => ({
     set({ isLoading: loading });
   },
 
-  setTyping: (typing: boolean) => {
-    set({ isTyping: typing });
-  },
-
-  setConnectionStatus: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => {
-    set({ connectionStatus: status });
-  },
-
-  setError: (error: AppError | null) => {
-    set({ error });
-  },
-
-  setActiveAgent: (agent: 'email_processor' | 'conversation_handler' | null) => {
-    set({ activeAgent: agent });
-  },
-
-  // WebSocket actions
-  connectWebSocket: () => {
-    try {
-      set({ connectionStatus: 'connecting' });
-      
-      chatService.connect({
-        onOpen: () => {
-          set({ 
-            isConnected: true, 
-            connectionStatus: 'connected',
-            error: null 
-          });
-        },
-        onMessage: (message: WebSocketMessage) => {
-          get().handleWebSocketMessage(message);
-        },
-        onError: (error: Error) => {
-          set({
-            isConnected: false,
-            connectionStatus: 'error',
-            error: {
-              code: 'WEBSOCKET_ERROR',
-              message: error.message,
-              timestamp: new Date(),
-            }
-          });
-        },
-        onClose: () => {
-          set({ 
-            isConnected: false,
-            connectionStatus: 'disconnected'
-          });
-        },
-      });
-    } catch (error) {
-      set({
-        connectionStatus: 'error',
-        error: {
-          code: 'WEBSOCKET_CONNECTION_FAILED',
-          message: error instanceof Error ? error.message : 'Failed to connect',
-          timestamp: new Date(),
-        }
-      });
+  sendMessage: async (content: string) => {
+    const { socket, currentSession, addMessage } = get();
+    
+    if (!socket || !socket.connected) {
+      console.error('WebSocket not connected');
+      return;
     }
+
+    // 添加用户消息
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      type: 'user',
+      content,
+      timestamp: new Date(),
+      isStreaming: false
+    };
+    
+    addMessage(userMessage);
+    set({ isLoading: true });
+
+    // 发送消息到后端
+    socket.emit('agent_message', {
+      message: content,
+      session_id: currentSession
+    });
+  },
+
+  connectWebSocket: () => {
+    const token = getToken();
+    if (!token) {
+      console.error('No auth token available');
+      return;
+    }
+
+    const socket = io(API_BASE_URL, {
+      auth: {
+        token
+      },
+      path: '/socket.io/',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
+
+    socket.on('connect', () => {
+      console.log('WebSocket connected');
+      set({ isConnected: true });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('WebSocket disconnected');
+      set({ isConnected: false });
+    });
+
+    socket.on('agent_event', (event: WebSocketMessage) => {
+      const { messages, streamingMessageId, pendingToolCalls, updateMessage, addMessage } = get();
+      
+      switch (event.type) {
+        case 'agent_response_chunk':
+          // 处理流式响应
+          if (streamingMessageId) {
+            const lastMessage = messages.find(msg => msg.id === streamingMessageId);
+            if (lastMessage && lastMessage.isStreaming) {
+              updateMessage(streamingMessageId, {
+                content: lastMessage.content + (event.content || '')
+              });
+            }
+          } else {
+            // 创建新的流式消息
+            const newMessageId = event.id || uuidv4();
+            const agentMessage: ChatMessage = {
+              id: newMessageId,
+              type: 'agent',
+              content: event.content || '',
+              timestamp: new Date(event.timestamp),
+              isStreaming: true
+            };
+            addMessage(agentMessage);
+            set({ streamingMessageId: newMessageId });
+          }
+          break;
+
+        case 'tool_call_start':
+          // 工具调用开始
+          if (event.tool_name && event.id) {
+            const toolCall: ToolCall = {
+              id: event.id,
+              name: event.tool_name,
+              arguments: event.tool_args || {},
+              status: 'running'
+            };
+            
+            pendingToolCalls.set(event.id, toolCall);
+            
+            const toolMessage: ChatMessage = {
+              id: event.id,
+              type: 'tool_call',
+              content: `调用工具: ${event.tool_name}`,
+              timestamp: new Date(event.timestamp),
+              toolCall
+            };
+            addMessage(toolMessage);
+          }
+          break;
+
+        case 'tool_call_result':
+          // 工具调用结果
+          if (event.tool_name && event.id) {
+            const pendingCall = pendingToolCalls.get(event.id);
+            if (pendingCall) {
+              pendingCall.status = 'completed';
+              pendingCall.result = event.tool_result;
+              
+              updateMessage(event.id, {
+                toolCall: pendingCall
+              });
+              
+              pendingToolCalls.delete(event.id);
+            }
+          }
+          break;
+
+        case 'tool_call_error':
+          // 工具调用错误
+          if (event.tool_name && event.id) {
+            const pendingCall = pendingToolCalls.get(event.id);
+            if (pendingCall) {
+              pendingCall.status = 'failed';
+              pendingCall.error = event.error;
+              
+              updateMessage(event.id, {
+                toolCall: pendingCall
+              });
+              
+              pendingToolCalls.delete(event.id);
+            }
+          }
+          break;
+
+        case 'agent_error':
+          // Agent错误
+          const errorMessage: ChatMessage = {
+            id: uuidv4(),
+            type: 'error',
+            content: event.error || '处理请求时发生错误',
+            timestamp: new Date(event.timestamp),
+            onRetry: () => {
+              // 实现重试逻辑
+              const lastUserMessage = [...messages].reverse().find(msg => msg.type === 'user');
+              if (lastUserMessage) {
+                get().sendMessage(lastUserMessage.content);
+              }
+            }
+          };
+          addMessage(errorMessage);
+          set({ isLoading: false });
+          break;
+
+        case 'stream_end':
+          // 流式传输结束
+          if (streamingMessageId) {
+            updateMessage(streamingMessageId, {
+              isStreaming: false
+            });
+            set({ streamingMessageId: null, isLoading: false });
+          }
+          break;
+      }
+    });
+
+    socket.on('error', (error: any) => {
+      console.error('WebSocket error:', error);
+      const errorMessage: ChatMessage = {
+        id: uuidv4(),
+        type: 'error',
+        content: '连接错误，请检查网络连接',
+        timestamp: new Date()
+      };
+      addMessage(errorMessage);
+    });
+
+    set({ socket });
   },
 
   disconnectWebSocket: () => {
-    chatService.disconnect();
-    set({ 
-      isConnected: false,
-      connectionStatus: 'disconnected',
-      currentSession: null
-    });
-  },
-
-  handleWebSocketMessage: (message: WebSocketMessage) => {
-    const { addMessage, updateMessage, setTyping, setLoading } = get();
-    
-    switch (message.type) {
-      case 'agent_response':
-        const responseMessage: AgentMessage = {
-          id: `msg_${Date.now()}`,
-          type: 'agent',
-          content: message.content,
-          timestamp: message.timestamp,
-          agentType: message.agentType,
-          toolCalls: message.toolCalls,
-        };
-        addMessage(responseMessage);
-        setTyping(false);
-        setLoading(false);
-        break;
-        
-      case 'agent_response_chunk':
-        // Handle streaming response
-        const lastMessage = get().messages[get().messages.length - 1];
-        if (lastMessage && lastMessage.type === 'agent' && lastMessage.isStreaming) {
-          updateMessage(lastMessage.id, {
-            content: lastMessage.content + message.content,
-          });
-        } else {
-          const streamMessage: AgentMessage = {
-            id: `msg_${Date.now()}`,
-            type: 'agent',
-            content: message.content,
-            timestamp: message.timestamp,
-            agentType: message.agentType,
-            isStreaming: true,
-          };
-          addMessage(streamMessage);
-        }
-        break;
-        
-      case 'task_progress':
-        // Handle task progress updates
-        setLoading(true);
-        break;
-        
-      case 'daily_report':
-        // Handle daily report completion
-        const reportMessage: AgentMessage = {
-          id: `msg_${Date.now()}`,
-          type: 'agent',
-          content: message.content,
-          timestamp: message.timestamp,
-          agentType: 'email_processor',
-        };
-        addMessage(reportMessage);
-        break;
-        
-      case 'error':
-        set({
-          error: {
-            code: 'AGENT_ERROR',
-            message: message.content,
-            timestamp: message.timestamp,
-          }
-        });
-        setLoading(false);
-        setTyping(false);
-        break;
-        
-      default:
-        console.warn('Unknown message type:', message.type);
+    const { socket } = get();
+    if (socket) {
+      socket.disconnect();
+      set({ socket: null, isConnected: false });
     }
-  },
+  }
 
-  retryConnection: () => {
-    get().disconnectWebSocket();
-    setTimeout(() => {
-      get().connectWebSocket();
-    }, 1000);
-  },
-
-  // Message actions
-  sendMessage: async (content: string) => {
-    try {
-      const { isConnected, activeAgent } = get();
-      
-      if (!isConnected) {
-        throw new Error('WebSocket not connected');
-      }
-      
-      if (!activeAgent) {
-        throw new Error('No active agent selected');
-      }
-      
-      // Add user message
-      const userMessage: AgentMessage = {
-        id: `msg_${Date.now()}`,
-        type: 'user',
-        content,
-        timestamp: new Date(),
-      };
-      
-      get().addMessage(userMessage);
-      set({ isLoading: true, isTyping: true });
-      
-      // Send to appropriate agent
-      await get().sendMessageToAgent(content, activeAgent);
-      
-    } catch (error) {
-      set({
-        error: {
-          code: 'SEND_MESSAGE_FAILED',
-          message: error instanceof Error ? error.message : 'Failed to send message',
-          timestamp: new Date(),
-        },
-        isLoading: false,
-        isTyping: false,
-      });
-    }
-  },
-
-  sendMessageToAgent: async (content: string, agentType: 'email_processor' | 'conversation_handler') => {
-    const { currentSession } = get();
-    
-    const message = {
-      message: content,
-      session_id: currentSession,
-      agent_type: agentType,
-    };
-    
-    chatService.sendMessage(message);
-  },
-
-  // Utility actions
-  clearError: () => {
-    set({ error: null });
-  },
-
-  clearSession: () => {
-    set({ 
-      currentSession: null,
-      messages: [],
-      activeAgent: null
-    });
-  },
-
-  getMessageHistory: (limit?: number) => {
-    const { messages } = get();
-    return limit ? messages.slice(-limit) : messages;
-  },
-
-  deleteMessage: (messageId: string) => {
-    const { messages } = get();
-    const filteredMessages = messages.filter(msg => msg.id !== messageId);
-    set({ messages: filteredMessages });
-  },
-
-  editMessage: (messageId: string, newContent: string) => {
-    const { messages } = get();
-    const updatedMessages = messages.map(msg =>
-      msg.id === messageId ? { ...msg, content: newContent } : msg
-    );
-    set({ messages: updatedMessages });
-  },
 }));
 
 export default useChatStore;

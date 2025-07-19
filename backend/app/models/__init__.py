@@ -9,6 +9,7 @@ from .user_preference import UserPreference
 from .daily_report import DailyReport
 from .task_log import TaskLog, TaskStatus, TaskType
 from .oauth_session import OAuthSession, SessionStatus
+from .conversation import ConversationMessage
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "TaskType",
     "OAuthSession",
     "SessionStatus",
+    "ConversationMessage",
 ]

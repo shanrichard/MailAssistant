@@ -5,12 +5,14 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import socketio
 
 from .core.config import settings
 from .core.database import create_tables
 from .core.logging import get_logger
 from .api import auth, gmail, scheduler, agents
 from .websockets.agent_ws import websocket_handler
+from .socketio_app import sio
 
 logger = get_logger(__name__)
 
@@ -118,11 +120,14 @@ async def root():
     }
 
 
+# Mount Socket.IO on FastAPI
+socket_app = socketio.ASGIApp(sio, app)
+
 if __name__ == "__main__":
     import uvicorn
-    # When running directly, use the app object
+    # When running directly, use the socket_app (includes both FastAPI and Socket.IO)
     uvicorn.run(
-        app,
+        socket_app,
         host=settings.host,
         port=settings.port,
         reload=False  # Disable reload when running directly

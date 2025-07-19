@@ -90,24 +90,53 @@ export interface AgentMessage {
   isStreaming?: boolean;
 }
 
+// Chat相关类型定义
+export interface ChatMessage {
+  id: string;
+  type: 'user' | 'agent' | 'tool_call' | 'agent_thought' | 'error';
+  content: string;
+  timestamp: Date;
+  toolCall?: ToolCall;
+  thought?: AgentThought;
+  isStreaming?: boolean;
+  onRetry?: () => void;  // 错误重试回调
+}
+
 export interface ToolCall {
-  toolName: string;
-  input: any;
-  output: any;
-  executionTime: number;
-  status: 'success' | 'error';
+  id?: string;
+  name?: string;
+  toolName?: string; // 兼容旧版本
+  arguments?: Record<string, any>;
+  input?: any; // 兼容旧版本
+  output?: any;
+  executionTime?: number;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'success' | 'error';
+  result?: any;
   error?: string;
+}
+
+export interface AgentThought {
+  content: string;
+  confidence?: number;
 }
 
 // WebSocket相关类型
 export interface WebSocketMessage {
-  type: 'agent_response' | 'agent_response_chunk' | 'daily_report' | 'task_progress' | 'error';
-  content: string;
+  type: 'agent_response' | 'agent_response_chunk' | 'tool_call_start' | 
+        'tool_call_result' | 'tool_call_error' | 'agent_thought' | 'agent_error' | 
+        'stream_end' | 'daily_report' | 'task_progress' | 'error';
+  id?: string;  // 消息ID
+  content?: string;
+  tool_name?: string;
+  tool_args?: Record<string, any>;
+  tool_result?: any;
+  thought?: string;
+  error?: string;  // 错误信息
+  timestamp: string;
   agentType?: 'email_processor' | 'conversation_handler';
   sessionId?: string;
   progress?: number;
   toolCalls?: ToolCall[];
-  timestamp: Date;
 }
 
 // 任务相关类型
@@ -213,18 +242,20 @@ export interface EmailStore {
 }
 
 export interface ChatStore {
-  messages: AgentMessage[];
+  messages: ChatMessage[];
   currentSession: string | null;
   isConnected: boolean;
   isLoading: boolean;
   // Actions
-  addMessage: (message: AgentMessage) => void;
-  updateMessage: (id: string, updates: Partial<AgentMessage>) => void;
+  addMessage: (message: ChatMessage) => void;
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
   clearMessages: () => void;
   setSession: (sessionId: string | null) => void;
   setConnected: (connected: boolean) => void;
   setLoading: (loading: boolean) => void;
   sendMessage: (content: string) => Promise<void>;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
 }
 
 // 工具函数类型
