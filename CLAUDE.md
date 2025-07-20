@@ -161,3 +161,48 @@
 ## 记忆
 
 * plan模式定计划的时候，不要管我花多少时间，与你无关。
+* 记住使用根目录下面的venv虚拟环境进行开发和验证，依赖都安装在里面，python的正确版本也在里面，不在backend或者frontend！
+* .env环境变量在根目录，不在backend或者frontend，在根目录
+
+## 开发调试日志系统
+
+项目中已经实现了一个轻量级的开发调试日志系统（任务 3-4），用于帮助调试前后端错误。
+
+### 功能特性
+- **前端错误自动收集**：自动捕获 console.error 和未处理的 Promise rejection
+- **localStorage 存储**：错误存储在浏览器 localStorage 中（key: `mailassistant_frontend_errors`）
+- **错误自动发送**（新增）：
+  - 严重错误（unhandledRejection）立即发送
+  - 普通错误（console.error）每 30 秒批量发送
+  - 自动去重、失败重试
+- **API 查看日志**：提供 API 端点查看前后端错误日志
+- **仅开发环境**：通过 `ENVIRONMENT=development` 控制，不影响生产环境
+
+### 使用方法
+
+1. **查看前端错误**（浏览器控制台）：
+   ```javascript
+   window.debugLogs.get()     // 查看所有前端错误
+   window.debugLogs.clear()   // 清除错误记录
+   await window.debugLogs.send() // 手动发送到后端
+   window.debugLogs.setAutoSend(false) // 关闭自动发送
+   ```
+
+2. **通过 API 查看日志**（适合 Claude 使用）：
+   ```bash
+   # 查看后端错误
+   curl http://localhost:8000/api/debug/logs/backend
+   
+   # 查看前后端所有错误（自动包含已发送的前端错误）
+   curl -X POST http://localhost:8000/api/debug/logs/all \
+     -H "Content-Type: application/json" \
+     -d '{"frontend_errors": []}'
+   ```
+
+### 相关文件
+- `frontend/src/utils/errorCollector.ts` - 前端错误收集器
+- `frontend/src/utils/debugHelper.ts` - 调试辅助函数
+- `backend/app/api/debug_logs.py` - 日志查看 API
+- `docs/debug-logs.md` - 详细使用文档
+
+记住：遇到调试问题时，先用这个日志系统查看错误信息！
