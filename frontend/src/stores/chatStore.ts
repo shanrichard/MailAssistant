@@ -319,7 +319,7 @@ const useChatStore = create<ChatStoreState>((set, get) => ({
         content: '连接错误，请检查网络连接',
         timestamp: new Date()
       };
-      addMessage(errorMessage);
+      get().addMessage(errorMessage);
     });
 
     set({ socket });

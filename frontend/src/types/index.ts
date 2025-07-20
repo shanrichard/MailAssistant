@@ -254,7 +254,7 @@ export interface ChatStore {
   setConnected: (connected: boolean) => void;
   setLoading: (loading: boolean) => void;
   sendMessage: (content: string) => Promise<void>;
-  connectWebSocket: () => void;
+  connectWebSocket: () => Promise<void>;
   disconnectWebSocket: () => void;
 }
 

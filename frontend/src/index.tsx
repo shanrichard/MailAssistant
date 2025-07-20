@@ -10,6 +10,7 @@ import App from './App';
 // 开发环境调试工具
 import './utils/errorCollector'; // 自动初始化错误收集器
 import './utils/debugHelper';    // 注册全局调试函数
+import './utils/migrateTokenStorage'; // 自动迁移旧的token存储
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
