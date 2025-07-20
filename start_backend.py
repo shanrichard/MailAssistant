@@ -9,7 +9,8 @@ from pathlib import Path
 
 # Add the project root to Python path
 project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+backend_path = project_root / "backend"
+sys.path.insert(0, str(backend_path))
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ if __name__ == "__main__":
     import uvicorn
     
     # Import settings to get host/port from config
-    from backend.app.core.config import settings
+    from app.core.config import settings
     
     print("🚀 Starting MailAssistant backend server in development mode...")
     print(f"📁 Project root: {project_root}")
@@ -30,11 +31,12 @@ if __name__ == "__main__":
     print("")
     
     # Use string import for reload to work
+    # 使用 socket_app 而不是 app，以支持 Socket.IO
     uvicorn.run(
-        "backend.app.main:app",
+        "app.main:socket_app",
         host=settings.host,
         port=settings.port,
         reload=True,
         log_level="info",
-        reload_dirs=[str(project_root / "backend")]
+        reload_dirs=[str(backend_path)]
     )

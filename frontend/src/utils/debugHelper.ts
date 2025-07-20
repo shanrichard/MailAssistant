@@ -18,6 +18,7 @@ export const sendLogsToBackend = async () => {
 };
 
 // 可以在控制台手动调用的全局函数
+console.log('[DebugHelper] NODE_ENV:', process.env.NODE_ENV);
 if (process.env.NODE_ENV === 'development') {
   (window as any).debugLogs = {
     send: sendLogsToBackend,
@@ -37,4 +38,6 @@ if (process.env.NODE_ENV === 'development') {
   console.log('%c[Auto-send is ON]', 'color: #2196F3');
   console.log('- Severe errors are sent immediately');
   console.log('- Normal errors are sent every 30 seconds');
+} else {
+  console.log('[DebugHelper] Not in development mode, debug tools disabled');
 }

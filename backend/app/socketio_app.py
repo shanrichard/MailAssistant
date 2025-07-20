@@ -9,6 +9,7 @@ from typing import Optional
 from .core.config import settings
 from .core.logging import get_logger
 from .core.database import SessionLocal
+from .core.errors import translate_error, AppError
 from .models.user import User
 from .agents.conversation_handler import ConversationHandler
 
@@ -18,20 +19,26 @@ logger = get_logger(__name__)
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    logger=False,
-    engineio_logger=False
+    logger=True,  # 启用日志以调试连接问题
+    engineio_logger=True,  # 启用引擎日志
+    # 添加更多配置以支持WebSocket升级
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1000000,
+    allow_upgrades=True,  # 明确允许传输升级
+    http_compression=True
 )
 
 # 存储用户会话信息
 user_sessions = {}
 
-async def get_user_from_token(token: str) -> Optional[User]:
+def get_user_from_token(token: str) -> Optional[User]:
     """从JWT token获取用户信息"""
     try:
         payload = jwt.decode(
             token, 
-            settings.auth.secret_key, 
-            algorithms=[settings.auth.algorithm]
+            settings.security.secret_key, 
+            algorithms=[settings.security.jwt_algorithm]
         )
         user_id = payload.get("sub")
         
@@ -45,35 +52,41 @@ async def get_user_from_token(token: str) -> Optional[User]:
         finally:
             db.close()
             
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        logger.warning("JWT decode error", error=str(e))
         return None
 
 @sio.event
 async def connect(sid, environ, auth):
     """处理WebSocket连接"""
-    logger.info("WebSocket connection attempt", sid=sid)
-    
-    if not auth or 'token' not in auth:
-        logger.warning("No auth token provided", sid=sid)
-        await sio.disconnect(sid)
-        return False
+    try:
+        logger.info("WebSocket connection attempt", sid=sid, auth=auth, 
+                   headers=dict(environ.get('asgi', {}).get('headers', [])),
+                   query_string=environ.get('QUERY_STRING', ''))
         
-    user = await get_user_from_token(auth['token'])
-    if not user:
-        logger.warning("Invalid auth token", sid=sid)
-        await sio.disconnect(sid)
-        return False
+        if not auth or 'token' not in auth:
+            logger.warning("No auth token provided", sid=sid, auth=auth)
+            # 不立即断开连接，而是返回False让客户端知道认证失败
+            return False
+            
+        user = get_user_from_token(auth['token'])
+        if not user:
+            logger.warning("Invalid auth token", sid=sid)
+            return False
+            
+        # 存储用户会话信息
+        user_sessions[sid] = {
+            'user_id': str(user.id),  # 确保是字符串
+            'user': user,
+            'connected_at': datetime.now()
+        }
         
-    # 存储用户会话信息
-    user_sessions[sid] = {
-        'user_id': user.id,
-        'user': user,
-        'connected_at': datetime.now()
-    }
-    
-    logger.info("WebSocket connected", sid=sid, user_id=user.id)
-    await sio.emit('connected', {'status': 'connected'}, room=sid)
-    return True
+        logger.info("WebSocket connected", sid=sid, user_id=str(user.id))
+        await sio.emit('connected', {'status': 'connected'}, room=sid)
+        return True
+    except Exception as e:
+        logger.error("Error in connect handler", sid=sid, error=str(e), exc_info=True)
+        return False
 
 @sio.event
 async def disconnect(sid):
@@ -137,15 +150,22 @@ async def agent_message(sid, data):
             db.close()
             
     except Exception as e:
+        # 将异常转换为用户友好的错误
+        if isinstance(e, AppError):
+            app_error = e
+        else:
+            app_error = translate_error(e)
+        
         logger.error("Error processing agent message", 
                     sid=sid, 
                     user_id=user_id, 
-                    error=str(e))
-        await sio.emit('agent_event', {
-            'type': 'agent_error',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }, room=sid)
+                    error=str(e),
+                    error_category=app_error.category.value)
+        
+        # 发送用户友好的错误消息
+        error_response = app_error.to_dict()
+        error_response['timestamp'] = datetime.now().isoformat()
+        await sio.emit('agent_event', error_response, room=sid)
 
 @sio.event
 async def typing_start(sid, data):

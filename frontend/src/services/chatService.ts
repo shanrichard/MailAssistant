@@ -36,7 +36,13 @@ class ChatService {
       auth: {
         token,
       },
-      transports: ['websocket'],
+      // 移除 transports 限制，让 Socket.IO 使用默认的升级机制
+      // 默认会先使用 polling，然后升级到 websocket
+      transports: ['polling', 'websocket'],
+      // 添加更多调试选项
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     // Setup event handlers

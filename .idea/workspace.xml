@@ -5,11 +5,29 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="94577998-05fd-41e9-a0bb-fea421b2d66e" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/agents/conversation_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/conversation_handler.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/run_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/run_server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/socketio_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/socketio_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/websockets/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/websockets/agent_ws.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/config/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/config/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Chat.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Chat.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/chatService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/chatService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/stores/chatStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/stores/chatStore.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/utils/debugHelper.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/utils/debugHelper.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/utils/errorCollector.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/utils/errorCollector.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_backend.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_backend.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tasks/2-12-12.design.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/2-12-12.design.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tasks/2-12.task.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/2-12.task.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tasks/2025-07-15_frontend_ui_implementation.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/2025-07-15_frontend_ui_implementation.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tasks/task_hierarchy.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/task_hierarchy.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

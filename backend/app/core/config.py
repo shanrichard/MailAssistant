@@ -80,6 +80,12 @@ class AgentConfig(BaseModel):
     conversation_handler_temperature: float = Field(0.3, description="ConversationHandler temperature")
     conversation_handler_session_timeout: int = Field(3600, description="ConversationHandler session timeout in seconds")
     
+    # 消息裁剪配置
+    message_pruning_enabled: bool = Field(True, description="Enable message pruning")
+    max_messages_count: int = Field(50, description="Maximum number of messages to keep")
+    max_tokens_count: int = Field(3000, description="Maximum token count for messages")
+    pruning_strategy: str = Field("count", description="Pruning strategy: 'count' or 'tokens'")
+    
     # 通用Agent配置
     agent_tool_timeout: int = Field(60, description="Agent tool execution timeout in seconds")
     agent_max_concurrent_tasks: int = Field(5, description="Maximum concurrent agent tasks")
@@ -123,6 +129,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = Field("MailAssistant", env="APP_NAME")
     app_version: str = Field("1.0.0", env="APP_VERSION")
+    environment: str = Field("production", env="ENVIRONMENT")
     debug: bool = Field(False, env="DEBUG")
     host: str = Field("0.0.0.0", env="HOST")
     port: int = Field(8000, env="PORT")
@@ -150,6 +157,12 @@ class Settings(BaseSettings):
     conversation_handler_default_model: str = Field("gpt-4o", env="CONVERSATION_HANDLER_DEFAULT_MODEL")
     conversation_handler_temperature: float = Field(0.3, env="CONVERSATION_HANDLER_TEMPERATURE")
     conversation_handler_session_timeout: int = Field(3600, env="CONVERSATION_HANDLER_SESSION_TIMEOUT")
+    
+    # 消息裁剪配置
+    message_pruning_enabled: bool = Field(True, env="MESSAGE_PRUNING_ENABLED")
+    max_messages_count: int = Field(50, env="MAX_MESSAGES_COUNT")
+    max_tokens_count: int = Field(3000, env="MAX_TOKENS_COUNT")
+    pruning_strategy: str = Field("count", env="PRUNING_STRATEGY")
     
     agent_tool_timeout: int = Field(60, env="AGENT_TOOL_TIMEOUT")
     agent_max_concurrent_tasks: int = Field(5, env="AGENT_MAX_CONCURRENT_TASKS")
@@ -244,6 +257,11 @@ class Settings(BaseSettings):
             conversation_handler_default_model=self.conversation_handler_default_model,
             conversation_handler_temperature=self.conversation_handler_temperature,
             conversation_handler_session_timeout=self.conversation_handler_session_timeout,
+            
+            message_pruning_enabled=self.message_pruning_enabled,
+            max_messages_count=self.max_messages_count,
+            max_tokens_count=self.max_tokens_count,
+            pruning_strategy=self.pruning_strategy,
             
             agent_tool_timeout=self.agent_tool_timeout,
             agent_max_concurrent_tasks=self.agent_max_concurrent_tasks,

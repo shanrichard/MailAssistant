@@ -17,7 +17,7 @@ const getEnvVar = (name: string, defaultValue?: string): string => {
 // 应用配置
 export const appConfig: AppConfig = {
   apiBaseUrl: getEnvVar('REACT_APP_API_URL', 'http://localhost:8000'),
-  wsUrl: getEnvVar('REACT_APP_WS_URL', 'ws://localhost:8000'),
+  wsUrl: getEnvVar('REACT_APP_WS_URL', 'http://localhost:8000'),
   googleClientId: getEnvVar('REACT_APP_GOOGLE_CLIENT_ID', ''),
   enableDebug: getEnvVar('REACT_APP_DEBUG', 'false') === 'true',
   defaultPageSize: parseInt(getEnvVar('REACT_APP_DEFAULT_PAGE_SIZE', '20')),

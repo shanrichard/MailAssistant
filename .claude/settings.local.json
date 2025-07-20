@@ -61,7 +61,13 @@
       "WebFetch(domain:github.com)",
       "Bash(/workspace/restart_services.sh:*)",
       "Bash(./restart_services.sh)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(pip index versions:*)",
+      "Bash(pipdeptree:*)",
+      "Bash(../.venv/bin/python test_conversation_handler_3_2_2.py)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(grep:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   }

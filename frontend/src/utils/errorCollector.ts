@@ -15,9 +15,14 @@ class ErrorCollector {
   constructor() {
     // 只在开发环境启用
     this.isEnabled = process.env.NODE_ENV === 'development';
+    console.log('[ErrorCollector] Initializing...', {
+      NODE_ENV: process.env.NODE_ENV,
+      isEnabled: this.isEnabled
+    });
     if (this.isEnabled) {
       this.setupErrorHandlers();
       this.startAutoSend();
+      console.log('[ErrorCollector] Error handlers setup complete');
     }
   }
 

@@ -8,14 +8,20 @@ import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatStore, ChatMessage, WebSocketMessage, ToolCall } from '../types';
 import { getToken } from '../utils/auth';
+import { appConfig } from '../config';
+import { withRetry, ErrorRecoveryManager } from '../utils/errorRecovery';
 
 interface ChatStoreState extends ChatStore {
   socket: Socket | null;
   streamingMessageId: string | null;
   pendingToolCalls: Map<string, ToolCall>;
+  errorRecoveryManager: ErrorRecoveryManager;
+  retryStatus: {
+    isRetrying: boolean;
+    attempt: number;
+    message: string;
+  } | null;
 }
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
 const useChatStore = create<ChatStoreState>((set, get) => ({
   messages: [],
@@ -25,6 +31,8 @@ const useChatStore = create<ChatStoreState>((set, get) => ({
   socket: null,
   streamingMessageId: null,
   pendingToolCalls: new Map(),
+  errorRecoveryManager: new ErrorRecoveryManager(),
+  retryStatus: null,
 
   addMessage: (message: ChatMessage) => {
     set((state) => ({
@@ -57,13 +65,8 @@ const useChatStore = create<ChatStoreState>((set, get) => ({
   },
 
   sendMessage: async (content: string) => {
-    const { socket, currentSession, addMessage } = get();
+    const { socket, currentSession, addMessage, errorRecoveryManager } = get();
     
-    if (!socket || !socket.connected) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
     // 添加用户消息
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -74,28 +77,109 @@ const useChatStore = create<ChatStoreState>((set, get) => ({
     };
     
     addMessage(userMessage);
-    set({ isLoading: true });
+    set({ isLoading: true, retryStatus: null });
 
-    // 发送消息到后端
-    socket.emit('agent_message', {
-      message: content,
-      session_id: currentSession
-    });
+    try {
+      // 使用重试机制发送消息
+      await errorRecoveryManager.executeWithRetry(
+        `send_message_${userMessage.id}`,
+        async () => {
+          const currentSocket = get().socket;
+          
+          // 确保连接存在
+          if (!currentSocket || !currentSocket.connected) {
+            // 尝试重新连接
+            await get().connectWebSocket();
+            
+            // 再次检查
+            const reconnectedSocket = get().socket;
+            if (!reconnectedSocket || !reconnectedSocket.connected) {
+              throw new Error('WebSocket connection failed');
+            }
+          }
+          
+          // 发送消息
+          return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Message send timeout'));
+            }, 30000); // 30秒超时
+            
+            // 监听一次性响应以确认发送成功
+            const socket = get().socket!;
+            
+            // 发送消息
+            socket.emit('agent_message', {
+              message: content,
+              session_id: currentSession
+            });
+            
+            // 假设立即成功（实际项目中可能需要等待确认）
+            clearTimeout(timeout);
+            resolve(true);
+          });
+        },
+        {
+          maxAttempts: 3,
+          baseDelay: 1000,
+          maxDelay: 5000
+        },
+        {
+          onRetry: (attempt, delay) => {
+            set({ 
+              retryStatus: { 
+                isRetrying: true, 
+                attempt,
+                message: `正在重试发送消息 (${attempt}/3)...`
+              }
+            });
+          },
+          onError: (error) => {
+            console.error('Failed to send message after retries:', error);
+            
+            // 添加错误消息
+            const errorMessage: ChatMessage = {
+              id: uuidv4(),
+              type: 'error',
+              content: '消息发送失败，请检查网络连接后重试',
+              timestamp: new Date(),
+              onRetry: () => get().sendMessage(content)
+            };
+            
+            addMessage(errorMessage);
+            set({ isLoading: false, retryStatus: null });
+          },
+          onSuccess: () => {
+            set({ retryStatus: null });
+          }
+        }
+      );
+    } catch (error) {
+      // 错误已在 onError 中处理
+      console.error('Send message error:', error);
+    }
   },
 
-  connectWebSocket: () => {
+  connectWebSocket: async () => {
+    // 防止重复连接
+    const existingSocket = get().socket;
+    if (existingSocket && existingSocket.connected) {
+      console.log('WebSocket already connected');
+      return Promise.resolve();
+    }
+
     const token = getToken();
     if (!token) {
       console.error('No auth token available');
-      return;
+      return Promise.reject(new Error('No auth token'));
     }
 
-    const socket = io(API_BASE_URL, {
+    const socket = io(appConfig.wsUrl, {
       auth: {
         token
       },
       path: '/socket.io/',
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // 先使用polling，然后升级到websocket
+      upgrade: true, // 允许升级
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5
@@ -239,6 +323,23 @@ const useChatStore = create<ChatStoreState>((set, get) => ({
     });
 
     set({ socket });
+    
+    // 返回连接 Promise
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('WebSocket connection timeout'));
+      }, 10000); // 10秒超时
+      
+      socket.once('connect', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      socket.once('connect_error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
   },
 
   disconnectWebSocket: () => {

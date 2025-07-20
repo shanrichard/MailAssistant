@@ -1,7 +1,7 @@
 """
 FastAPI main application
 """
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -11,7 +11,6 @@ from .core.config import settings
 from .core.database import create_tables
 from .core.logging import get_logger
 from .api import auth, gmail, scheduler, agents
-from .websockets.agent_ws import websocket_handler
 from .socketio_app import sio
 
 logger = get_logger(__name__)
@@ -102,11 +101,13 @@ app.include_router(gmail.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 
-# WebSocket endpoint
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = None):
-    """WebSocket endpoint for real-time communication"""
-    await websocket_handler(websocket, token)
+# Debug endpoints (only in development)
+if settings.environment == "development":
+    from .api import debug_logs
+    app.include_router(debug_logs.router)
+
+# WebSocket functionality is handled by Socket.IO
+# The /ws endpoint has been removed in favor of Socket.IO
 
 
 # Root endpoint

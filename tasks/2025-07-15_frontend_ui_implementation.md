@@ -249,19 +249,23 @@ interface AppState {
 ```
 
 #### 3.3 WebSocket集成
-**实时通信实现：**
+**实时通信实现（使用Socket.IO）：**
 ```typescript
-class WebSocketService {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
+// 注意：项目使用Socket.IO而不是原生WebSocket
+import { io, Socket } from 'socket.io-client';
+
+class SocketService {
+  private socket: Socket | null = null;
   
   connect(token: string) {
-    this.ws = new WebSocket(`${WS_URL}/ws?token=${token}`);
+    this.socket = io(WS_URL, {
+      auth: { token },
+      transports: ['polling', 'websocket']
+    });
     
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    this.socket.on('agent_event', (data) => {
       this.handleMessage(data);
-    };
+    });
     
     this.ws.onclose = () => {
       this.handleReconnect();

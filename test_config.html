@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configuration Test</title>
+</head>
+<body>
+    <h1>Configuration Test</h1>
+    <button onclick="checkConfig()">Check Configuration</button>
+    <div id="results"></div>
+    
+    <script>
+        async function checkConfig() {
+            const results = document.getElementById('results');
+            let html = '<h2>Checking Configuration...</h2>';
+            
+            // 1. 检查前端配置文件
+            try {
+                const response = await fetch('/static/js/bundle.js');
+                const bundleText = await response.text();
+                
+                // 搜索配置
+                const wsUrlMatch = bundleText.match(/wsUrl['":\s]+["']([^"']+)["']/);
+                const reactAppWsUrlMatch = bundleText.match(/REACT_APP_WS_URL['":\s]+["']([^"']+)["']/);
+                
+                html += '<h3>Bundle Analysis:</h3>';
+                html += `<p>wsUrl config: ${wsUrlMatch ? wsUrlMatch[1] : 'Not found'}</p>`;
+                html += `<p>REACT_APP_WS_URL: ${reactAppWsUrlMatch ? reactAppWsUrlMatch[1] : 'Not found'}</p>`;
+                
+                // 搜索ws://
+                const wsMatches = bundleText.match(/ws:\/\/[^"'\s]+/g);
+                if (wsMatches) {
+                    html += '<p>Found ws:// URLs in bundle:</p>';
+                    html += '<ul>';
+                    [...new Set(wsMatches)].forEach(url => {
+                        html += `<li>${url}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                // 搜索http://localhost:8000
+                const httpMatches = bundleText.match(/http:\/\/localhost:8000[^"'\s]*/g);
+                if (httpMatches) {
+                    html += '<p>Found http://localhost:8000 URLs in bundle:</p>';
+                    html += '<ul>';
+                    [...new Set(httpMatches)].forEach(url => {
+                        html += `<li>${url}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+            } catch (e) {
+                html += `<p>Error checking bundle: ${e.message}</p>`;
+            }
+            
+            // 2. 检查环境变量
+            html += '<h3>Environment Variables:</h3>';
+            html += `<p>NODE_ENV: ${process.env.NODE_ENV || 'undefined'}</p>`;
+            html += `<p>REACT_APP_WS_URL: ${process.env.REACT_APP_WS_URL || 'undefined'}</p>`;
+            
+            results.innerHTML = html;
+        }
+        
+        // 自动运行
+        window.onload = checkConfig;
+    </script>
+</body>
+</html>
