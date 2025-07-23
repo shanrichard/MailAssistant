@@ -1,16 +1,24 @@
 """
 Gmail API routes for email operations
 """
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Dict, Any, Optional, Callable
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+from datetime import datetime
+import asyncio
 
 from ..core.database import get_db
 from ..api.auth import get_current_user
 from ..models.user import User
+from ..models.user_sync_status import UserSyncStatus
 from ..services.gmail_service import gmail_service
 from ..services.email_sync_service import email_sync_service
+from ..core.logging import get_logger
+from ..services.idempotent_sync_service import start_sync_idempotent, release_sync_status_atomic, get_active_task_info
+from ..services.heartbeat_sync_service import execute_background_sync_with_heartbeat, get_sync_health_status
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -25,6 +33,9 @@ class SyncResponse(BaseModel):
     success: bool
     stats: Dict[str, int]
     message: str
+    in_progress: Optional[bool] = False
+    progress_percentage: Optional[int] = 0
+    task_id: Optional[str] = None
 
 
 class EmailListResponse(BaseModel):
@@ -300,3 +311,157 @@ async def get_messages_by_sender(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to get messages by sender: {str(e)}")
+
+
+# 新的智能同步 API 端点
+
+@router.post("/sync/smart", response_model=SyncResponse)
+async def smart_sync_emails(
+    background_tasks: BackgroundTasks,
+    force_full: bool = Query(default=False, description="Force full sync"),
+    background: bool = Query(default=False, description="Run in background"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> SyncResponse:
+    """智能同步：幂等启动，防止重复任务"""
+    try:
+        # 使用幂等启动接口
+        task_id = start_sync_idempotent(db, current_user.id, force_full)
+        
+        # 检查是否复用了现有任务
+        active_task = get_active_task_info(db, current_user.id)
+        
+        if active_task and active_task.get("is_active") and active_task["task_id"] == task_id:
+            # 复用现有任务
+            return SyncResponse(
+                success=True,
+                stats=active_task.get("current_stats", {}),
+                message="复用进行中的同步任务",
+                in_progress=True,
+                progress_percentage=active_task.get("progress_percentage", 0),
+                task_id=task_id
+            )
+        
+        # 新任务：启动后台任务
+        logger.info(f"准备启动后台任务", extra={"task_id": task_id, "has_background_tasks": bool(background_tasks)})
+        
+        if background_tasks:
+            logger.info(f"使用BackgroundTasks启动任务", extra={"task_id": task_id})
+            background_tasks.add_task(
+                execute_background_sync_with_heartbeat, current_user.id, force_full, task_id
+            )
+        else:
+            # 如果没有BackgroundTasks，使用asyncio
+            logger.info(f"使用asyncio.create_task启动任务", extra={"task_id": task_id})
+            asyncio.create_task(
+                execute_background_sync_with_heartbeat(current_user.id, force_full, task_id)
+            )
+        
+        return SyncResponse(
+            success=True,
+            stats={},
+            message="同步任务已启动",
+            task_id=task_id,
+            in_progress=True
+        )
+        
+    except Exception as e:
+        logger.error(f"启动同步失败: {e}", extra={"user_id": current_user.id})
+        raise HTTPException(status_code=400, detail=f"启动同步失败: {str(e)}")
+
+
+@router.get("/sync/should-sync")
+async def should_sync(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """检查是否需要同步及同步建议"""
+    try:
+        # 检查是否首次同步
+        is_first = email_sync_service.is_first_sync(db, current_user)
+        
+        # 获取最后同步时间
+        sync_status = db.query(UserSyncStatus).filter(
+            UserSyncStatus.user_id == current_user.id
+        ).first()
+        
+        last_sync = sync_status.updated_at if sync_status else None
+        
+        # 获取邮件数量
+        from ..models.email import Email
+        email_count = db.query(Email).filter(Email.user_id == current_user.id).count()
+        
+        # 决定是否需要同步
+        need_sync = is_first or (sync_status and sync_status.is_syncing is False)
+        exceeded = False
+        
+        if last_sync:
+            from datetime import timedelta
+            from app.utils.datetime_utils import utc_now, safe_datetime_diff, format_datetime_for_api
+            
+            # 使用安全的时区处理函数
+            current_time = utc_now()
+            time_diff = safe_datetime_diff(current_time, last_sync)
+            
+            if time_diff:
+                exceeded = time_diff > timedelta(hours=1)  # 1小时未同步则建议同步
+                need_sync = need_sync or exceeded
+                logger.debug(f"Time difference since last sync: {time_diff}, exceeded: {exceeded}")
+        
+        # 返回详细原因
+        return {
+            "needsSync": need_sync,
+            "reason": "firstSync" if is_first else "thresholdExceeded" if exceeded else "scheduled",
+            "lastSyncTime": format_datetime_for_api(last_sync),
+            "emailCount": email_count,
+            "isFirstSync": is_first
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to check sync status: {e}", user_id=current_user.id)
+        raise HTTPException(status_code=400, detail=f"Failed to check sync status: {str(e)}")
+
+
+@router.get("/sync/progress/{task_id}")
+async def get_sync_progress(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """获取后台同步任务进度"""
+    try:
+        sync_status = db.query(UserSyncStatus).filter(
+            UserSyncStatus.user_id == current_user.id,
+            UserSyncStatus.task_id == task_id
+        ).first()
+        
+        if not sync_status:
+            raise HTTPException(status_code=404, detail="Sync task not found")
+        
+        return {
+            "success": True,
+            "isRunning": sync_status.is_syncing,
+            "progress": sync_status.progress_percentage,
+            "stats": sync_status.current_stats or {},
+            "error": sync_status.error_message,
+            "syncType": sync_status.sync_type,
+            "startedAt": sync_status.started_at.isoformat() if sync_status.started_at else None,
+            "updatedAt": sync_status.updated_at.isoformat() if sync_status.updated_at else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get sync progress: {e}", task_id=task_id, user_id=current_user.id)
+        raise HTTPException(status_code=400, detail=f"Failed to get sync progress: {str(e)}")
+
+@router.get("/sync/health")
+async def sync_health_check():
+    """同步系统健康检查"""
+    try:
+        health_status = get_sync_health_status()
+        return health_status
+        
+    except Exception as e:
+        logger.error(f"健康检查失败: {e}")
+        raise HTTPException(status_code=500, detail=f"健康检查失败: {str(e)}")

@@ -4,7 +4,7 @@
 import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date, timedelta
-from langchain.tools import tool
+from langchain.tools import Tool  # 需要Tool类来包装函数给ConversationHandler使用
 
 from ..core.logging import get_logger
 from ..models.email import Email
@@ -17,7 +17,6 @@ logger = get_logger(__name__)
 def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, Any]):
     """创建对话处理工具集"""
     
-    @tool
     def search_email_history(query: str, limit: int = 10) -> str:
         """搜索历史邮件。
         
@@ -34,7 +33,7 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 Email.user_id == user_id,
                 (Email.subject.contains(query) | 
                  Email.sender.contains(query) | 
-                 Email.body_text.contains(query))
+                 Email.body_plain.contains(query))
             ).order_by(Email.received_at.desc()).limit(limit).all()
             
             results = []
@@ -44,7 +43,7 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "subject": email.subject,
                     "sender": email.sender,
                     "received_at": email.received_at.isoformat(),
-                    "snippet": email.body_text[:200] + "..." if len(email.body_text) > 200 else email.body_text
+                    "snippet": email.body_plain[:200] + "..." if len(email.body_plain) > 200 else email.body_plain
                 })
             
             result = {
@@ -71,19 +70,18 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"搜索失败：{str(e)}"
             }, ensure_ascii=False)
     
-    @tool
-    def read_daily_report(date: Optional[str] = None) -> str:
+    def read_daily_report(report_date_str: Optional[str] = None) -> str:
         """读取指定日期的日报。
         
         Args:
-            date: 日期，格式YYYY-MM-DD，不指定则读取今日日报
+            report_date_str: 日期字符串，格式YYYY-MM-DD，不指定则读取今日日报
             
         Returns:
             日报内容的JSON字符串
         """
         try:
-            if date:
-                report_date = datetime.strptime(date, "%Y-%m-%d").date()
+            if report_date_str:
+                report_date = datetime.strptime(report_date_str, "%Y-%m-%d").date()
             else:
                 report_date = date.today()
             
@@ -147,7 +145,6 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"读取日报失败：{str(e)}"
             }, ensure_ascii=False)
     
-    @tool
     def bulk_mark_read(criteria: str) -> str:
         """批量标记邮件为已读。
         
@@ -195,7 +192,7 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     Email.user_id == user_id,
                     (Email.subject.contains(criteria) | 
                      Email.sender.contains(criteria) | 
-                     Email.body_text.contains(criteria))
+                     Email.body_plain.contains(criteria))
                 ).limit(100).all()
                 emails_to_mark = emails
             
@@ -206,21 +203,23 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "affected_count": 0
                 }, ensure_ascii=False)
             
-            # 批量标记为已读
+            # 批量标记为已读（优化版本）
+            gmail_ids = [email.gmail_id for email in emails_to_mark]
+            
+            # 分片处理避免 Gmail API 限流
+            CHUNK_SIZE = 50
             affected_count = 0
             errors = []
             
-            for email in emails_to_mark:
+            for i in range(0, len(gmail_ids), CHUNK_SIZE):
+                chunk = gmail_ids[i:i + CHUNK_SIZE]
                 try:
-                    # 调用Gmail API标记为已读
-                    gmail_service.mark_email_as_read(
-                        user_context["user"], 
-                        email.gmail_id
-                    )
-                    affected_count += 1
-                    
+                    success = gmail_service.mark_as_read(user_context["user"], chunk)
+                    if success:
+                        affected_count += len(chunk)
                 except Exception as e:
-                    errors.append(f"标记邮件 {email.subject} 失败: {str(e)}")
+                    errors.append(f"标记批次 {i//CHUNK_SIZE + 1} 失败: {str(e)}")
+                    logger.error(f"Failed to mark chunk {i//CHUNK_SIZE}: {e}")
             
             result = {
                 "status": "success",
@@ -248,7 +247,6 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"批量标记失败：{str(e)}"
             }, ensure_ascii=False)
     
-    @tool
     def update_user_preferences(preference_description: str, preference_type: str = "important") -> str:
         """更新用户偏好设置。
         
@@ -298,7 +296,6 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"偏好更新失败：{str(e)}"
             }, ensure_ascii=False)
     
-    @tool
     def trigger_email_processor(action: str, parameters: Optional[Dict[str, Any]] = None) -> str:
         """触发EmailProcessor执行特定任务。
         
@@ -356,7 +353,6 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"触发EmailProcessor失败：{str(e)}"
             }, ensure_ascii=False)
     
-    @tool
     def get_task_status(task_type: str = "all") -> str:
         """查询任务状态。
         
@@ -414,11 +410,38 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"查询任务状态失败：{str(e)}"
             }, ensure_ascii=False)
     
-    return [
-        search_email_history, 
-        read_daily_report, 
-        bulk_mark_read, 
-        update_user_preferences, 
-        trigger_email_processor,
-        get_task_status
+    # 将函数包装成Tool对象，保持与ConversationHandler的兼容性
+    tools = [
+        Tool(
+            name="search_email_history",
+            description=search_email_history.__doc__ or "搜索历史邮件",
+            func=search_email_history
+        ),
+        Tool(
+            name="read_daily_report", 
+            description=read_daily_report.__doc__ or "读取指定日期的日报",
+            func=read_daily_report
+        ),
+        Tool(
+            name="bulk_mark_read",
+            description=bulk_mark_read.__doc__ or "批量标记邮件为已读",
+            func=bulk_mark_read
+        ),
+        Tool(
+            name="update_user_preferences",
+            description=update_user_preferences.__doc__ or "更新用户偏好设置",
+            func=update_user_preferences
+        ),
+        Tool(
+            name="trigger_email_processor",
+            description=trigger_email_processor.__doc__ or "触发EmailProcessor执行特定任务",
+            func=trigger_email_processor
+        ),
+        Tool(
+            name="get_task_status",
+            description=get_task_status.__doc__ or "查询任务状态",
+            func=get_task_status
+        )
     ]
+    
+    return tools

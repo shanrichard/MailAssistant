@@ -25,8 +25,7 @@ class GmailService:
     def __init__(self):
         self.scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.modify',
-            'https://www.googleapis.com/auth/gmail.labels'
+            'https://www.googleapis.com/auth/gmail.modify'
         ]
     
     def _get_gmail_service(self, user: User):
@@ -45,9 +44,10 @@ class GmailService:
             else:
                 tokens = user.get_decrypted_gmail_tokens()
             
-            # Create credentials
+            # Create credentials（兼容不同的token字段名）
+            access_token = tokens.get('access_token') or tokens.get('token')
             credentials = Credentials(
-                token=tokens['access_token'],
+                token=access_token,
                 refresh_token=tokens.get('refresh_token'),
                 token_uri=tokens.get('token_uri', 'https://oauth2.googleapis.com/token'),
                 client_id=settings.google_client_id,
@@ -316,6 +316,33 @@ class GmailService:
             
         except Exception as e:
             logger.error(f"Failed to search messages: {str(e)}")
+            raise
+    
+    def search_messages_paginated(
+        self, 
+        user: User, 
+        query: str, 
+        max_results: int = 50,
+        page_token: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        """Search messages with pagination support"""
+        try:
+            # Get message list with pagination
+            messages, next_page_token = self.list_messages(
+                user, query=query, max_results=max_results, page_token=page_token
+            )
+            
+            # Get detailed message data
+            detailed_messages = []
+            for message in messages:
+                message_details = self.get_message_details(user, message['id'])
+                parsed_message = self.parse_message(message_details)
+                detailed_messages.append(parsed_message)
+            
+            return detailed_messages, next_page_token
+            
+        except Exception as e:
+            logger.error(f"Failed to search messages paginated: {str(e)}")
             raise
     
     def get_recent_messages(

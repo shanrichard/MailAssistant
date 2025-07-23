@@ -22,12 +22,14 @@ class JWTManager:
     def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token"""
         to_encode = data.copy()
-        if expires_delta:
-            expire = datetime.utcnow() + expires_delta
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=self.expire_minutes)
+        from ..utils.datetime_utils import utc_now
         
-        to_encode.update({"exp": expire, "iat": datetime.utcnow()})
+        if expires_delta:
+            expire = utc_now() + expires_delta
+        else:
+            expire = utc_now() + timedelta(minutes=self.expire_minutes)
+        
+        to_encode.update({"exp": expire, "iat": utc_now()})
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
     

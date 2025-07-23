@@ -12,6 +12,7 @@ from .oauth_session import OAuthSession, SessionStatus
 from .conversation import ConversationMessage
 from .daily_report_log import DailyReportLog
 from .analysis_audit_log import AnalysisAuditLog
+from .user_sync_status import UserSyncStatus
 
 __all__ = [
     "User",
@@ -27,4 +28,5 @@ __all__ = [
     "ConversationMessage",
     "DailyReportLog",
     "AnalysisAuditLog",
+    "UserSyncStatus",
 ]

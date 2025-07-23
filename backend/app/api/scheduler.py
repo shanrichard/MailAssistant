@@ -2,10 +2,10 @@
 Task scheduler management API routes
 """
 from typing import List, Optional
-from datetime import time
+from datetime import time, datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from ..core.database import get_db
 from .auth import get_current_user
@@ -22,6 +22,11 @@ class SchedulePreferenceRequest(BaseModel):
     auto_sync_enabled: bool = Field(default=True, description="是否启用自动同步")
 
 class SchedulePreferenceResponse(BaseModel):
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    )
     daily_report_time: str
     timezone: str
     auto_sync_enabled: bool
@@ -279,4 +284,36 @@ async def get_active_jobs(current_user: User = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get active jobs: {str(e)}"
+        )
+
+
+@router.get("/status", response_model=dict)
+async def get_scheduler_status():
+    """获取调度器状态和任务列表（包括僵死任务清理）"""
+    try:
+        from ..scheduler.scheduler_app import get_scheduler_status, get_active_jobs
+        
+        scheduler_status = get_scheduler_status()
+        active_jobs = get_active_jobs()
+        
+        # 查找僵死任务清理job
+        zombie_cleanup_job = next(
+            (job for job in active_jobs if job["id"] == "zombie_task_cleanup"),
+            None
+        )
+        
+        return {
+            "scheduler": scheduler_status,
+            "jobs": active_jobs,
+            "zombie_cleanup_job": zombie_cleanup_job,
+            "jobs_summary": {
+                "total": len(active_jobs),
+                "has_zombie_cleanup": zombie_cleanup_job is not None
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get scheduler status: {str(e)}"
         )

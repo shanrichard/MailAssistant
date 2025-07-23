@@ -6,8 +6,8 @@ import json
 import os
 from pathlib import Path
 
-from app.core.config import settings
-from app.core.logging import log_frontend_error
+from ..core.config import settings
+from ..core.logging import log_frontend_error
 
 router = APIRouter(prefix="/api/debug/logs", tags=["debug"])
 

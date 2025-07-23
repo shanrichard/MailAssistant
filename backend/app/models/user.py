@@ -71,13 +71,15 @@ class User(Base):
     
     def update_gmail_tokens(self, tokens: Dict[str, Any]) -> None:
         """Update Gmail tokens"""
+        from ..utils.datetime_utils import utc_now
         self.gmail_tokens = tokens
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utc_now()
     
     def clear_gmail_tokens(self) -> None:
         """Clear Gmail tokens"""
+        from ..utils.datetime_utils import utc_now
         self._encrypted_gmail_tokens = None
-        self.updated_at = datetime.utcnow()
+        self.updated_at = utc_now()
     
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}')>"

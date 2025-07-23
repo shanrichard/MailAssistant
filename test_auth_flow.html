@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Flow Test</title>
+</head>
+<body>
+    <h1>认证流程测试</h1>
+    <button onclick="checkAuth()">检查认证状态</button>
+    <button onclick="testWebSocket()">测试WebSocket连接</button>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message) {
+            output.textContent += message + '\n';
+            console.log(message);
+        }
+        
+        function checkAuth() {
+            log('\n=== 检查认证状态 ===');
+            
+            // 检查所有token相关的存储
+            const tokenKeys = Object.keys(localStorage).filter(k => 
+                k.includes('token') || k.includes('auth')
+            );
+            
+            log('找到的token相关keys: ' + JSON.stringify(tokenKeys));
+            
+            tokenKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                log(`${key}: ${value ? value.substring(0, 50) + '...' : 'null'}`);
+            });
+            
+            // 模拟getToken函数
+            function getToken() {
+                try {
+                    const authData = localStorage.getItem('mailassistant_auth_token');
+                    if (authData) {
+                        const parsed = JSON.parse(authData);
+                        return parsed.state?.token || null;
+                    }
+                    return localStorage.getItem('access_token');
+                } catch {
+                    return localStorage.getItem('access_token');
+                }
+            }
+            
+            const token = getToken();
+            log('\ngetToken() 结果: ' + (token ? '找到token' : '未找到token'));
+            if (token) {
+                log('Token前20字符: ' + token.substring(0, 20) + '...');
+            }
+        }
+        
+        function testWebSocket() {
+            log('\n=== 测试WebSocket连接 ===');
+            
+            // 获取token
+            function getToken() {
+                try {
+                    const authData = localStorage.getItem('mailassistant_auth_token');
+                    if (authData) {
+                        const parsed = JSON.parse(authData);
+                        return parsed.state?.token || null;
+                    }
+                    return localStorage.getItem('access_token');
+                } catch {
+                    return localStorage.getItem('access_token');
+                }
+            }
+            
+            const token = getToken();
+            if (!token) {
+                log('错误: 没有找到认证token');
+                return;
+            }
+            
+            log('使用token连接WebSocket...');
+            
+            // 尝试连接
+            const script = document.createElement('script');
+            script.src = 'https://cdn.socket.io/4.5.0/socket.io.min.js';
+            script.onload = () => {
+                const socket = io('http://localhost:8000', {
+                    auth: { token },
+                    path: '/socket.io/',
+                    transports: ['polling', 'websocket']
+                });
+                
+                socket.on('connect', () => {
+                    log('WebSocket连接成功! Socket ID: ' + socket.id);
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log('WebSocket连接错误: ' + error.message);
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    log('WebSocket断开连接: ' + reason);
+                });
+                
+                // 10秒后断开
+                setTimeout(() => {
+                    socket.disconnect();
+                    log('主动断开连接');
+                }, 10000);
+            };
+            document.body.appendChild(script);
+        }
+        
+        // 页面加载时自动检查
+        window.onload = () => {
+            checkAuth();
+        };
+    </script>
+</body>
+</html>

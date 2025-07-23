@@ -31,14 +31,14 @@ async def lifespan(app: FastAPI):
         raise
     
     # Start task scheduler
-    # TODO: Fix scheduler startup issue
-    # try:
-    #     from .scheduler import start_scheduler
-    #     await start_scheduler()
-    #     logger.info("Task scheduler started successfully")
-    # except Exception as e:
-    #     logger.error("Failed to start task scheduler", error=str(e))
-    #     raise
+    try:
+        from .scheduler import start_scheduler
+        await start_scheduler()
+        logger.info("Task scheduler started successfully")
+    except Exception as e:
+        logger.error("Failed to start task scheduler", error=str(e))
+        # 调度器启动失败不影响应用运行
+        pass
     
     yield
     
@@ -46,13 +46,14 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down MailAssistant application")
     
     # Stop task scheduler
-    # TODO: Fix scheduler shutdown issue
-    # try:
-    #     from .scheduler import stop_scheduler
-    #     await stop_scheduler()
-    #     logger.info("Task scheduler stopped successfully")
-    # except Exception as e:
-    #     logger.error("Failed to stop task scheduler", error=str(e))
+    try:
+        from .scheduler import stop_scheduler
+        await stop_scheduler()
+        logger.info("Task scheduler stopped successfully")
+    except Exception as e:
+        logger.error("Failed to stop task scheduler", error=str(e))
+        # 关闭失败不影响应用关闭
+        pass
 
 
 # Create FastAPI app
@@ -96,6 +97,10 @@ async def health_check():
 
 
 # Include routers
+
+# 注意：僵死任务清理已集成到主调度器中，不再需要独立的清理调度器
+# @app.on_event("startup") 和 @app.on_event("shutdown") 事件已移除
+
 app.include_router(auth.router, prefix="/api")
 app.include_router(gmail.router, prefix="/api")
 app.include_router(scheduler.router, prefix="/api")

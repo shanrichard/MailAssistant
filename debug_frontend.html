@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Frontend Errors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .error-item {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .error-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .error-type {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Frontend Error Debug Tool</h1>
+    
+    <button onclick="loadErrors()">Load Errors</button>
+    <button onclick="clearErrors()">Clear Errors</button>
+    <button onclick="sendToBackend()">Send to Backend</button>
+    
+    <div id="errorContainer"></div>
+    
+    <script>
+        function loadErrors() {
+            const errors = localStorage.getItem('mailassistant_frontend_errors');
+            const container = document.getElementById('errorContainer');
+            
+            if (!errors) {
+                container.innerHTML = '<p>No errors found in localStorage</p>';
+                return;
+            }
+            
+            try {
+                const errorList = JSON.parse(errors);
+                container.innerHTML = '<h2>Found ' + errorList.length + ' errors:</h2>';
+                
+                errorList.forEach((error, index) => {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-item';
+                    
+                    const time = new Date(error.timestamp).toLocaleString();
+                    errorDiv.innerHTML = `
+                        <div class="error-time">Time: ${time}</div>
+                        <div class="error-type">Type: ${error.type}</div>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    `;
+                    
+                    container.appendChild(errorDiv);
+                });
+                
+            } catch (e) {
+                container.innerHTML = '<p>Error parsing errors: ' + e.message + '</p>';
+            }
+        }
+        
+        function clearErrors() {
+            if (confirm('Are you sure you want to clear all errors?')) {
+                localStorage.removeItem('mailassistant_frontend_errors');
+                document.getElementById('errorContainer').innerHTML = '<p>Errors cleared</p>';
+            }
+        }
+        
+        async function sendToBackend() {
+            const errors = localStorage.getItem('mailassistant_frontend_errors');
+            if (!errors) {
+                alert('No errors to send');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/debug/logs/frontend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        errors: JSON.parse(errors)
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Errors sent successfully');
+                    // Optional: clear after sending
+                    // localStorage.removeItem('mailassistant_frontend_errors');
+                } else {
+                    alert('Failed to send errors: ' + response.statusText);
+                }
+            } catch (e) {
+                alert('Error sending to backend: ' + e.message);
+            }
+        }
+        
+        // Auto-load on page load
+        window.onload = loadErrors;
+    </script>
+</body>
+</html>

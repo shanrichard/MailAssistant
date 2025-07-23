@@ -6,6 +6,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import useChatStore from '../stores/chatStore';
 import { ChatMessage, ToolCall, AgentThought } from '../types';
+import { useSyncTrigger } from '../hooks/useSyncTrigger';
+import { useSyncStore } from '../stores/syncStore';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const Chat: React.FC = () => {
   const { 
@@ -17,7 +20,10 @@ const Chat: React.FC = () => {
     retryStatus 
   } = useChatStore();
   
+  const { checkAndSync, isSyncing } = useSyncTrigger();
+  const { progress } = useSyncStore();
   const [input, setInput] = useState('');
+  const [hasTriggeredSync, setHasTriggeredSync] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // 自动滚动到底部
@@ -28,6 +34,22 @@ const Chat: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  
+  // 页面访问时触发同步
+  useEffect(() => {
+    const triggerSyncOnPageLoad = async () => {
+      if (!hasTriggeredSync) {
+        setHasTriggeredSync(true);
+        try {
+          await checkAndSync('page-visit');
+        } catch (error) {
+          console.warn('Auto sync failed:', error);
+        }
+      }
+    };
+
+    triggerSyncOnPageLoad();
+  }, [checkAndSync, hasTriggeredSync]);
   
   // WebSocket连接已在MainLayout中处理，这里不需要重复连接
   // useEffect(() => {
@@ -50,6 +72,16 @@ const Chat: React.FC = () => {
   
   return (
     <div className="flex flex-col h-full">
+      {/* 同步状态指示器 */}
+      {isSyncing && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+          <div className="flex items-center space-x-2 text-sm text-blue-700">
+            <ArrowPathIcon className="h-4 w-4 animate-spin" />
+            <span>正在同步邮件数据... {progress}%</span>
+          </div>
+        </div>
+      )}
+      
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <MessageItem key={message.id} message={message} />

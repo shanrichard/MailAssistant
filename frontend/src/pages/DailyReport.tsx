@@ -3,14 +3,16 @@
  * 日报页面 - 整合所有组件
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import useDailyReportStore from '../stores/dailyReportStore';
 import ValueStats from '../components/dailyReport/ValueStats';
 import ImportantEmails from '../components/dailyReport/ImportantEmails';
 import EmailCategory from '../components/dailyReport/EmailCategory';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { useSyncTrigger } from '../hooks/useSyncTrigger';
+import { useSyncStore } from '../stores/syncStore';
 
 const DailyReport: React.FC = () => {
   const {
@@ -24,9 +26,28 @@ const DailyReport: React.FC = () => {
     markCategoryAsRead,
   } = useDailyReportStore();
 
+  const { checkAndSync, isSyncing } = useSyncTrigger();
+  const { progress } = useSyncStore();
+  const [hasTriggeredSync, setHasTriggeredSync] = useState(false);
+
   useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+    const initializePage = async () => {
+      try {
+        // 页面访问触发同步
+        if (!hasTriggeredSync) {
+          setHasTriggeredSync(true);
+          await checkAndSync('page-visit');
+        }
+      } catch (error) {
+        console.warn('Auto sync failed:', error);
+      } finally {
+        // 无论同步是否成功，都继续加载页面
+        fetchReport();
+      }
+    };
+
+    initializePage();
+  }, [checkAndSync, fetchReport, hasTriggeredSync]);
 
   // 加载状态
   if (isLoading && !report) {
@@ -85,9 +106,20 @@ const DailyReport: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="space-y-6">
-        {/* 页面标题 */}
+        {/* 页面标题和同步状态 */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">今日邮件日报</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">今日邮件日报</h1>
+            
+            {/* 同步状态指示器 */}
+            {isSyncing && (
+              <div className="flex items-center space-x-2 text-sm text-blue-600">
+                <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                <span>正在同步邮件... {progress}%</span>
+              </div>
+            )}
+          </div>
+          
           {report && (
             <p className="text-sm text-gray-500 mt-1">
               生成时间: {format(new Date(report.generatedAt), 'yyyy年MM月dd日 HH:mm', { locale: zhCN })}

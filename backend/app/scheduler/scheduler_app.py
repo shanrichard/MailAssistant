@@ -85,8 +85,9 @@ async def stop_scheduler():
 async def setup_system_jobs():
     """设置系统级定时任务"""
     from .jobs import create_token_refresh_job, create_cleanup_job
+    from ..services.heartbeat_sync_service import cleanup_zombie_tasks_by_heartbeat
     
-    # 令牌健康检查任务（每2小时）
+    # 1. 令牌健康检查任务（每2小时）
     scheduler.add_job(
         create_token_refresh_job,
         'interval',
@@ -96,7 +97,7 @@ async def setup_system_jobs():
         name='System Token Refresh Check'
     )
     
-    # 日志清理任务（每日凌晨2点）
+    # 2. 日志清理任务（每日凌晨2点）
     scheduler.add_job(
         create_cleanup_job,
         'cron',
@@ -107,7 +108,19 @@ async def setup_system_jobs():
         name='System Cleanup Task'
     )
     
-    logger.info("System jobs scheduled successfully")
+    # 3. 僵死任务清理（每2分钟） - 新增
+    scheduler.add_job(
+        cleanup_zombie_tasks_by_heartbeat,
+        'interval',
+        minutes=2,
+        id='zombie_task_cleanup',
+        replace_existing=True,
+        name='Zombie Task Cleanup',
+        max_instances=1,  # 防止重叠执行
+        misfire_grace_time=60  # 错过执行时间1分钟内仍执行
+    )
+    
+    logger.info("System jobs scheduled successfully, including zombie task cleanup")
 
 def get_scheduler_status():
     """获取调度器状态"""

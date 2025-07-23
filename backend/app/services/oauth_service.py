@@ -13,6 +13,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 from ..core.config import settings
+from ..utils.datetime_utils import utc_now
 from ..core.security import encryption_manager
 from ..core.logging import get_logger
 from .oauth_flow_manager import oauth_flow_manager
@@ -103,12 +104,12 @@ class OAuthTokenManager:
         """
         try:
             # 解密token数据
-            token_data = encryption_manager.decrypt_data(encrypted_tokens)
-            token_dict = json.loads(token_data)
+            token_dict = encryption_manager.decrypt_json(encrypted_tokens)
             
-            # 创建Credentials对象
+            # 创建Credentials对象（兼容不同的token字段名）
+            access_token = token_dict.get('access_token') or token_dict.get('token')
             credentials = Credentials(
-                token=token_dict['access_token'],
+                token=access_token,
                 refresh_token=token_dict.get('refresh_token'),
                 token_uri=token_dict.get('token_uri'),
                 client_id=token_dict.get('client_id'),
@@ -133,13 +134,11 @@ class OAuthTokenManager:
                     'client_secret': credentials.client_secret,
                     'scopes': credentials.scopes,
                     'expiry': credentials.expiry.isoformat() if credentials.expiry else None,
-                    'refreshed_at': datetime.utcnow().isoformat()
+                    'refreshed_at': utc_now().isoformat()
                 }
                 
                 # 加密更新后的token数据
-                new_encrypted_tokens = encryption_manager.encrypt_data(
-                    json.dumps(updated_token_data)
-                )
+                new_encrypted_tokens = encryption_manager.encrypt_json(updated_token_data)
                 
                 logger.info("Token refreshed successfully")
                 return new_encrypted_tokens, True
@@ -163,12 +162,12 @@ class OAuthTokenManager:
         """
         try:
             # 解密token数据
-            token_data = encryption_manager.decrypt_data(encrypted_tokens)
-            token_dict = json.loads(token_data)
+            token_dict = encryption_manager.decrypt_json(encrypted_tokens)
             
-            # 创建Credentials对象
+            # 创建Credentials对象（兼容不同的token字段名）
+            access_token = token_dict.get('access_token') or token_dict.get('token')
             credentials = Credentials(
-                token=token_dict['access_token'],
+                token=access_token,
                 refresh_token=token_dict.get('refresh_token'),
                 token_uri=token_dict.get('token_uri'),
                 client_id=token_dict.get('client_id'),
@@ -199,12 +198,12 @@ class OAuthTokenManager:
         """
         try:
             # 解密token数据
-            token_data = encryption_manager.decrypt_data(encrypted_tokens)
-            token_dict = json.loads(token_data)
+            token_dict = encryption_manager.decrypt_json(encrypted_tokens)
             
-            # 创建Credentials对象
+            # 创建Credentials对象（兼容不同的token字段名）
+            access_token = token_dict.get('access_token') or token_dict.get('token')
             credentials = Credentials(
-                token=token_dict['access_token'],
+                token=access_token,
                 refresh_token=token_dict.get('refresh_token'),
                 token_uri=token_dict.get('token_uri'),
                 client_id=token_dict.get('client_id'),
@@ -235,12 +234,12 @@ class OAuthTokenManager:
         """
         try:
             # 解密token数据
-            token_data = encryption_manager.decrypt_data(encrypted_tokens)
-            token_dict = json.loads(token_data)
+            token_dict = encryption_manager.decrypt_json(encrypted_tokens)
             
-            # 创建Credentials对象
+            # 创建Credentials对象（兼容不同的token字段名）
+            access_token = token_dict.get('access_token') or token_dict.get('token')
             credentials = Credentials(
-                token=token_dict['access_token'],
+                token=access_token,
                 refresh_token=token_dict.get('refresh_token'),
                 token_uri=token_dict.get('token_uri'),
                 client_id=token_dict.get('client_id'),

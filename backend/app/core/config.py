@@ -47,9 +47,6 @@ class AppConfig(BaseModel):
     port: int = Field(8000, description="Server port")
 
 
-class RedisConfig(BaseModel):
-    """Redis configuration"""
-    url: str = Field("redis://localhost:6379/0", description="Redis URL")
 
 
 class LogConfig(BaseModel):
@@ -134,8 +131,6 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", env="HOST")
     port: int = Field(8000, env="PORT")
     
-    # Redis
-    redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
     
     # Logging
     log_level: str = Field("INFO", env="LOG_LEVEL")
@@ -225,9 +220,6 @@ class Settings(BaseSettings):
             port=self.port
         )
     
-    @property
-    def redis(self) -> RedisConfig:
-        return RedisConfig(url=self.redis_url)
     
     @property
     def logging(self) -> LogConfig:

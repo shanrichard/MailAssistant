@@ -12,6 +12,7 @@ from ..models.task_log import TaskLog, TaskStatus, TaskType
 from ..models.user_preference import UserPreference
 from ..scheduler.jobs import setup_user_jobs, remove_user_jobs, update_user_schedule
 from ..scheduler.scheduler_app import scheduler, get_scheduler_status, get_active_jobs
+from ..utils.datetime_utils import format_datetime_for_api
 
 logger = get_logger(__name__)
 
@@ -122,8 +123,8 @@ class TaskService:
                     "daily_report_time": schedule_pref.daily_report_time.strftime("%H:%M") if schedule_pref.daily_report_time else "09:00",
                     "timezone": schedule_pref.timezone or "Asia/Shanghai",
                     "auto_sync_enabled": schedule_pref.auto_sync_enabled,
-                    "created_at": schedule_pref.created_at,
-                    "updated_at": schedule_pref.updated_at
+                    "created_at": format_datetime_for_api(schedule_pref.created_at),
+                    "updated_at": format_datetime_for_api(schedule_pref.updated_at)
                 }
             
             return None
