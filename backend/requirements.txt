@@ -37,6 +37,9 @@ langchain-openai
 openai>=1.25,<2
 langgraph
 
+# WebSocket & Socket.IO
+python-socketio
+
 # Utilities
 python-dotenv==1.0.0
 aiofiles==23.2.1

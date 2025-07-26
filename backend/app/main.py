@@ -1,114 +1,150 @@
 """
-逐步恢复FastAPI应用功能 - Step 3: 添加API路由模块导入
+FastAPI main application
 """
-from fastapi import FastAPI
-import os
-import logging
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from .core.config import settings
+from .core.database import create_tables
+from .core.logging import get_logger
+from .api import auth, gmail, agents, reports
+import socketio
+from .socketio_app import socket_app, get_active_sessions_count, sio
+from .utils.cleanup_tasks import cleanup_manager
+from .utils.background_sync_tasks import background_sync_tasks
 
-# 基础日志配置
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-# Step 2: 尝试导入核心配置模块
-core_imports_success = False
-core_import_error = None
 
-try:
-    from .core.config import settings
-    from .core.logging import get_logger
-    logger = get_logger(__name__)
-    core_imports_success = True
-    logger.info("Core config imports successful")
-except Exception as e:
-    core_import_error = str(e)
-    logger.error(f"Core config import failed: {e}")
-    # 继续使用基础logger
-
-# Step 3: 尝试导入API路由模块
-api_imports_success = False
-api_import_error = None
-
-if core_imports_success:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    logger.info("Starting MailAssistant application", version=settings.app_version)
+    
+    # Create database tables
     try:
-        from .api import auth, gmail, agents, reports
-        api_imports_success = True
-        logger.info("API router imports successful")
+        create_tables()
+        logger.info("Database tables created successfully")
     except Exception as e:
-        api_import_error = str(e)
-        logger.error(f"API router import failed: {e}")
-else:
-    api_import_error = "Skipped due to core import failure"
-
-# 检查环境变量
-def check_required_env_vars():
-    """检查必需的环境变量"""
-    missing_vars = []
-    required_vars = [
-        "DATABASE_URL",
-        "GOOGLE_CLIENT_ID", 
-        "GOOGLE_CLIENT_SECRET",
-        "GOOGLE_REDIRECT_URI",
-        "SECRET_KEY",
-        "ENCRYPTION_KEY"
-    ]
+        logger.error("Failed to create database tables", error=str(e))
+        raise
     
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
+    # Start cleanup tasks
+    try:
+        await cleanup_manager.start()
+        logger.info("Cleanup tasks started successfully")
+    except Exception as e:
+        logger.error("Failed to start cleanup tasks", error=str(e))
     
-    return missing_vars
+    # Start background sync tasks
+    try:
+        await background_sync_tasks.start()
+        logger.info("Background sync tasks started successfully")
+    except Exception as e:
+        logger.error("Failed to start background sync tasks", error=str(e))
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down MailAssistant application")
+    
+    # Stop cleanup tasks
+    try:
+        await cleanup_manager.stop()
+        logger.info("Cleanup tasks stopped successfully")
+    except Exception as e:
+        logger.error("Failed to stop cleanup tasks", error=str(e))
+    
+    # Stop background sync tasks
+    try:
+        await background_sync_tasks.stop()
+        logger.info("Background sync tasks stopped successfully")
+    except Exception as e:
+        logger.error("Failed to stop background sync tasks", error=str(e))
 
-# 检查环境变量状态
-missing_env_vars = check_required_env_vars()
-has_complete_config = len(missing_env_vars) == 0
 
-logger.info(f"Environment check: has_complete_config = {has_complete_config}")
-if not has_complete_config:
-    logger.info(f"Missing variables: {missing_env_vars}")
+# Create FastAPI app
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    description="AI-powered email assistant with Gmail integration",
+    lifespan=lifespan
+)
 
-app = FastAPI(title="MailAssistant Step 3 - API Router Import Test")
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=settings.cors_allowed_methods,
+    allow_headers=settings.cors_allowed_headers,
+)
 
-@app.get("/")
-def root():
-    return {
-        "message": "FastAPI with API router import test!", 
-        "status": "success",
-        "config_complete": has_complete_config,
-        "core_imports_success": core_imports_success,
-        "api_imports_success": api_imports_success
-    }
 
+# Exception handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler"""
+    logger.error("Unhandled exception", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+
+# Health check endpoint
 @app.get("/health")
-def health():
+async def health_check():
+    """Health check endpoint"""
     return {
-        "status": "healthy", 
-        "mode": "step3_api_routers",
-        "config_complete": has_complete_config,
-        "missing_env_vars": missing_env_vars if not has_complete_config else None,
-        "core_imports_success": core_imports_success,
-        "core_import_error": core_import_error,
-        "api_imports_success": api_imports_success,
-        "api_import_error": api_import_error
+        "status": "healthy",
+        "app": settings.app_name,
+        "version": settings.app_version
     }
 
-@app.get("/api/test")
-def api_test():
-    return {"message": "API route working!", "status": "success"}
 
-# 配置状态端点
-@app.get("/config/status")
-def config_status():
+# Include routers
+
+app.include_router(auth.router, prefix="/api")
+app.include_router(gmail.router, prefix="/api")
+app.include_router(agents.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
+
+# Debug endpoints (only in development)
+if settings.environment == "development":
+    from .api import debug_logs
+    app.include_router(debug_logs.router)
+
+# Socket.IO 状态端点
+@app.get("/api/socket/status")
+async def socket_status():
+    """Socket.IO 状态检查"""
     return {
-        "config_complete": has_complete_config,
-        "missing_env_vars": missing_env_vars,
-        "env_count": len([k for k in os.environ.keys() if not k.startswith('_')]),
-        "core_imports_success": core_imports_success,
-        "core_import_error": core_import_error,
-        "api_imports_success": api_imports_success,
-        "api_import_error": api_import_error
+        "active_connections": get_active_sessions_count(),
+        "status": "running"
     }
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "MailAssistant API",
+        "version": settings.app_version,
+        "docs": "/docs"
+    }
+
+# Socket.IO 集成 - 在最后包装整个应用
+app = socketio.ASGIApp(sio, other_asgi_app=app)
+
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(
+        app,
+        host=settings.host,
+        port=settings.port,
+        reload=False
+    )
