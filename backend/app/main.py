@@ -116,9 +116,9 @@ if has_complete_config:
         from .api import auth, gmail, agents, reports
         logger.info("API routers imported successfully")
         
-        import socketio
-        from .socketio_app import socket_app, get_active_sessions_count, sio
-        logger.info("Socket.IO imports successful")
+        # import socketio
+        # from .socketio_app import socket_app, get_active_sessions_count, sio
+        logger.info("Socket.IO imports temporarily disabled")
         
         from .utils.cleanup_tasks import cleanup_manager
         from .utils.background_sync_tasks import background_sync_tasks
@@ -200,17 +200,18 @@ if has_complete_config:
             from .api import debug_logs
             app.include_router(debug_logs.router)
         
-        # Socket.IO 状态端点
+        # Socket.IO 状态端点 - 暂时简化
         @app.get("/api/socket/status")
         async def socket_status():
             """Socket.IO 状态检查"""
             return {
-                "active_connections": get_active_sessions_count(),
-                "status": "running"
+                "active_connections": 0,  # 临时硬编码
+                "status": "disabled_for_testing"
             }
         
-        # Socket.IO 集成 - 在最后包装整个应用
-        app = socketio.ASGIApp(sio, other_asgi_app=app)
+        # Socket.IO 集成 - 暂时注释掉以测试路由
+        # app = socketio.ASGIApp(sio, other_asgi_app=app)
+        logger.info("Socket.IO integration temporarily disabled for testing")
         
         logger.info("Full MailAssistant application loaded successfully")
         
