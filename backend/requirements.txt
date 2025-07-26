@@ -30,6 +30,14 @@ httpx==0.25.2
 # Logging
 structlog==23.2.0
 
+# LLM & AI
+langchain==0.3.26
+langchain-core==0.3.69
+langchain-openai==0.3.28
+langchain-anthropic==0.3.0
+openai>=1.25.0
+anthropic>=0.7.7
+
 # Utilities
 python-dotenv==1.0.0
 aiofiles==23.2.1
