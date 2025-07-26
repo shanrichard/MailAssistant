@@ -1,5 +1,5 @@
 """
-逐步恢复FastAPI应用功能 - Step 2: 添加核心配置模块导入
+逐步恢复FastAPI应用功能 - Step 3: 添加API路由模块导入
 """
 from fastapi import FastAPI
 import os
@@ -23,6 +23,21 @@ except Exception as e:
     core_import_error = str(e)
     logger.error(f"Core config import failed: {e}")
     # 继续使用基础logger
+
+# Step 3: 尝试导入API路由模块
+api_imports_success = False
+api_import_error = None
+
+if core_imports_success:
+    try:
+        from .api import auth, gmail, agents, reports
+        api_imports_success = True
+        logger.info("API router imports successful")
+    except Exception as e:
+        api_import_error = str(e)
+        logger.error(f"API router import failed: {e}")
+else:
+    api_import_error = "Skipped due to core import failure"
 
 # 检查环境变量
 def check_required_env_vars():
@@ -51,26 +66,29 @@ logger.info(f"Environment check: has_complete_config = {has_complete_config}")
 if not has_complete_config:
     logger.info(f"Missing variables: {missing_env_vars}")
 
-app = FastAPI(title="MailAssistant Step 2 - Core Config Import Test")
+app = FastAPI(title="MailAssistant Step 3 - API Router Import Test")
 
 @app.get("/")
 def root():
     return {
-        "message": "FastAPI with core config import test!", 
+        "message": "FastAPI with API router import test!", 
         "status": "success",
         "config_complete": has_complete_config,
-        "core_imports_success": core_imports_success
+        "core_imports_success": core_imports_success,
+        "api_imports_success": api_imports_success
     }
 
 @app.get("/health")
 def health():
     return {
         "status": "healthy", 
-        "mode": "step2_core_config",
+        "mode": "step3_api_routers",
         "config_complete": has_complete_config,
         "missing_env_vars": missing_env_vars if not has_complete_config else None,
         "core_imports_success": core_imports_success,
-        "core_import_error": core_import_error
+        "core_import_error": core_import_error,
+        "api_imports_success": api_imports_success,
+        "api_import_error": api_import_error
     }
 
 @app.get("/api/test")
@@ -85,7 +103,9 @@ def config_status():
         "missing_env_vars": missing_env_vars,
         "env_count": len([k for k in os.environ.keys() if not k.startswith('_')]),
         "core_imports_success": core_imports_success,
-        "core_import_error": core_import_error
+        "core_import_error": core_import_error,
+        "api_imports_success": api_imports_success,
+        "api_import_error": api_import_error
     }
 
 if __name__ == "__main__":
