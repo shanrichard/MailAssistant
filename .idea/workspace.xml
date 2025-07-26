@@ -5,57 +5,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="94577998-05fd-41e9-a0bb-fea421b2d66e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/agents/base_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/base_agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/agents/conversation_handler.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/conversation_handler.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/agents/conversation_tools.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/conversation_tools.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/agents/email_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/email_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/agents/email_tools.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/agents/email_tools.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/gmail.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/gmail.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/config/agent_prompts.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/config/agent_prompts.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/email.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/email.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/email_analysis.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/user.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/user.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/user_preference.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/user_sync_status.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/user_sync_status.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/scheduler/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/scheduler/jobs.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/scheduler/scheduler_app.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/email_sync_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/email_sync_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/gmail_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/gmail_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/heartbeat_sync_service.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/idempotent_sync_service.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/socketio_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/socketio_app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/migrations/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/migrations/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/EmailCategory.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/EmailListItem.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/ImportantEmails.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/ValueStats.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/__tests__/EmailCategory.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/__tests__/EmailListItem.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/__tests__/ImportantEmails.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/dailyReport/__tests__/ValueStats.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useSyncTrigger.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useSyncTrigger.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Chat.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Chat.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/DailyReport.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/DailyReport.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Settings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Settings.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/dailyReportService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/dailyReportService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/emailService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/emailService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/gmailService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/gmailService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/stores/chatStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/stores/chatStore.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/stores/dailyReportStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/stores/dailyReportStore.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/stores/emailStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/stores/emailStore.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/stores/syncStore.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/dailyReport.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/dailyReport.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/start_backend.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_backend.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tasks/3.task.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/3.task.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tasks/task_hierarchy.md" beforeDir="false" afterPath="$PROJECT_DIR$/tasks/task_hierarchy.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt.backup" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/test_checkpointer_error.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/test_gmail_integration.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/AuthActions.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/AuthPersistence.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/AuthStateManagement.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/BasicTest.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/DailyReportBasic.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/DailyReportStructure.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/LoginComponent.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/LoginPage.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/ProjectStartup.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/RouteArchitecture.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/RouteRedirection.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/RouteSystem.test.tsx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
