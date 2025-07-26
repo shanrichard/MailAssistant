@@ -72,7 +72,7 @@ const DailyReport: React.FC = () => {
   }
 
   return (
-    <div className="w-full md:max-w-4xl md:mx-auto px-3 md:px-6 lg:px-8 py-4 md:py-8">
+    <div className="max-w-full md:max-w-4xl mx-auto px-3 md:px-6 lg:px-8 py-4 md:py-8">
       <div className="bg-white rounded-lg shadow">
         {/* 页面标题和操作栏 */}
         <div className="border-b border-gray-200 px-4 md:px-6 py-4">
