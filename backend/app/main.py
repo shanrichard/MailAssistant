@@ -1,5 +1,5 @@
 """
-逐步恢复FastAPI应用功能 - Step 1: 添加配置加载
+逐步恢复FastAPI应用功能 - Step 2: 添加核心配置模块导入
 """
 from fastapi import FastAPI
 import os
@@ -8,6 +8,21 @@ import logging
 # 基础日志配置
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Step 2: 尝试导入核心配置模块
+core_imports_success = False
+core_import_error = None
+
+try:
+    from .core.config import settings
+    from .core.logging import get_logger
+    logger = get_logger(__name__)
+    core_imports_success = True
+    logger.info("Core config imports successful")
+except Exception as e:
+    core_import_error = str(e)
+    logger.error(f"Core config import failed: {e}")
+    # 继续使用基础logger
 
 # 检查环境变量
 def check_required_env_vars():
@@ -36,23 +51,26 @@ logger.info(f"Environment check: has_complete_config = {has_complete_config}")
 if not has_complete_config:
     logger.info(f"Missing variables: {missing_env_vars}")
 
-app = FastAPI(title="MailAssistant Step 1 - Config Test")
+app = FastAPI(title="MailAssistant Step 2 - Core Config Import Test")
 
 @app.get("/")
 def root():
     return {
-        "message": "FastAPI with config check working!", 
+        "message": "FastAPI with core config import test!", 
         "status": "success",
-        "config_complete": has_complete_config
+        "config_complete": has_complete_config,
+        "core_imports_success": core_imports_success
     }
 
 @app.get("/health")
 def health():
     return {
         "status": "healthy", 
-        "mode": "step1_config",
+        "mode": "step2_core_config",
         "config_complete": has_complete_config,
-        "missing_env_vars": missing_env_vars if not has_complete_config else None
+        "missing_env_vars": missing_env_vars if not has_complete_config else None,
+        "core_imports_success": core_imports_success,
+        "core_import_error": core_import_error
     }
 
 @app.get("/api/test")
@@ -65,7 +83,9 @@ def config_status():
     return {
         "config_complete": has_complete_config,
         "missing_env_vars": missing_env_vars,
-        "env_count": len([k for k in os.environ.keys() if not k.startswith('_')])
+        "env_count": len([k for k in os.environ.keys() if not k.startswith('_')]),
+        "core_imports_success": core_imports_success,
+        "core_import_error": core_import_error
     }
 
 if __name__ == "__main__":
