@@ -56,17 +56,29 @@ async def get_google_auth_url() -> Dict[str, str]:
         )
 
 
-@router.post("/google/callback", response_model=TokenResponse)
+@router.get("/google/callback", response_model=TokenResponse)
 async def google_oauth_callback(
-    request: GoogleAuthRequest,
+    request: Request,
+    code: str,
+    state: str,
+    scope: str = None,
+    authuser: str = None,
+    hd: str = None,
+    prompt: str = None,
     db: Session = Depends(get_db)
 ) -> TokenResponse:
     """Handle Google OAuth callback"""
     try:
+        # Construct full authorization_response URL from request
+        authorization_response = str(request.url)
+        
+        # Extract session_id from state (assuming state contains session_id)
+        session_id = state  # Temporary - need to check how state is structured
+        
         # Exchange authorization_response for tokens
         oauth_result = oauth_token_manager.exchange_code_for_tokens(
-            authorization_response=request.authorization_response,
-            session_id=request.session_id
+            authorization_response=authorization_response,
+            session_id=session_id
         )
         
         tokens = oauth_result['tokens']
@@ -123,15 +135,15 @@ async def google_oauth_callback(
         logger.error("Google OAuth callback failed", 
                     error=str(e),
                     error_type=type(e).__name__,
-                    authorization_response=request.authorization_response,
-                    session_id=request.session_id)
+                    code=code,
+                    state=state)
         
         # 根据环境决定错误详情
         if settings.environment == "development":
             error_detail = {
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "session_id": request.session_id,
+                "session_id": session_id,
                 "message": f"Authentication failed: {str(e)}"
             }
         else:
