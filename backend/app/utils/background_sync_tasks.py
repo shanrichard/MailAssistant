@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..core.database import SessionLocal
 from ..core.logging import get_logger
+from ..core.config import settings
 from ..services.email_sync_service import email_sync_service
 from ..models.user import User
 
@@ -64,8 +65,10 @@ class BackgroundSyncTasks:
         while self.is_running:
             try:
                 await self._perform_auto_sync()
-                # 每30分钟自动同步一次
-                await asyncio.sleep(1800)
+                # 根据配置的小时数自动同步
+                sync_interval_seconds = settings.auto_sync_interval_hours * 3600
+                logger.info(f"Next auto sync in {settings.auto_sync_interval_hours} hours ({sync_interval_seconds} seconds)")
+                await asyncio.sleep(sync_interval_seconds)
             except Exception as e:
                 logger.error(f"Error in auto sync loop: {e}", exc_info=True)
                 # 出错后等待5分钟再试

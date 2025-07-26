@@ -3,7 +3,7 @@ Configuration management for MailAssistant
 """
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 import os
 
 
@@ -141,6 +141,9 @@ class Settings(BaseSettings):
     task_retry_delay: int = Field(60, env="TASK_RETRY_DELAY")
     daily_report_default_time: str = Field("08:00", env="DAILY_REPORT_DEFAULT_TIME")
     
+    # Background Sync
+    auto_sync_interval_hours: int = Field(6, env="AUTO_SYNC_INTERVAL_HOURS")
+    
     # Agent配置
     email_processor_timeout: int = Field(300, env="EMAIL_PROCESSOR_TIMEOUT")
     email_processor_max_retries: int = Field(3, env="EMAIL_PROCESSOR_MAX_RETRIES")
@@ -180,6 +183,20 @@ class Settings(BaseSettings):
     enable_api_performance_monitoring: bool = Field(True, env="ENABLE_API_PERFORMANCE_MONITORING")
     api_performance_report_threshold: float = Field(1.0, env="API_PERFORMANCE_REPORT_THRESHOLD")
     api_monitoring_log_level: str = Field("INFO", env="API_MONITORING_LOG_LEVEL")
+    
+    # CORS configuration
+    cors_allowed_origins: List[str] = Field(
+        ["http://localhost:3000", "http://127.0.0.1:3000"], 
+        env="CORS_ALLOWED_ORIGINS"
+    )
+    cors_allowed_methods: List[str] = Field(
+        ["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
+        env="CORS_ALLOWED_METHODS"
+    )
+    cors_allowed_headers: List[str] = Field(
+        ["Authorization", "Content-Type", "Accept", "Origin", "User-Agent"], 
+        env="CORS_ALLOWED_HEADERS"
+    )
     
     class Config:
         env_file = ".env"
