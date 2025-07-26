@@ -1,6 +1,5 @@
 """
-Production-safe FastAPI main application
-优先保证健康检查通过，然后逐步加载完整功能
+Production-ready FastAPI main application - 无环境变量检查版本
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +11,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app - 使用基础配置
+# Create FastAPI app
 app = FastAPI(
     title="MailAssistant",
     version="1.0.0",
@@ -38,85 +37,159 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error"}
     )
 
-# Health check endpoint - 最优先保证这个工作
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "app": "MailAssistant",
-        "version": "1.0.0"
-    }
-
-# Root endpoint
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "MailAssistant API - Basic Mode",
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
-
-# 尝试加载完整功能，但失败时不影响基础功能
 try:
-    logger.info("Attempting to load full application features...")
+    logger.info("Loading full application...")
     
-    # 检查环境变量
-    required_vars = ["DATABASE_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SECRET_KEY"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    # 导入完整配置和功能
+    from .core.config import settings
+    from .core.database import create_tables
+    from .core.logging import get_logger
+    logger.info("Core imports successful")
     
-    if not missing_vars:
-        logger.info("Environment variables complete, loading full features...")
+    from .api import auth, gmail, agents, reports
+    logger.info("API routers imported successfully")
+    
+    import socketio
+    from .socketio_app import socket_app, get_active_sessions_count, sio
+    logger.info("Socket.IO imports successful")
+    
+    from .utils.cleanup_tasks import cleanup_manager
+    from .utils.background_sync_tasks import background_sync_tasks
+    logger.info("Background tasks imports successful")
+    
+    # 更新logger
+    logger = get_logger(__name__)
+    
+    # 启动时初始化数据库
+    @app.on_event("startup")
+    async def startup_event():
+        """Startup event"""
+        logger.info("Starting MailAssistant application", version=settings.app_version)
         
-        # 尝试导入核心模块
-        from .core.config import settings
-        from .core.database import create_tables
-        from .core.logging import get_logger
-        logger.info("Core modules imported successfully")
+        # Create database tables
+        try:
+            create_tables()
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error("Failed to create database tables", error=str(e))
+            raise
         
-        # 尝试导入API路由
-        from .api import auth, gmail, agents, reports
-        logger.info("API modules imported successfully")
+        # Start cleanup tasks
+        try:
+            await cleanup_manager.start()
+            logger.info("Cleanup tasks started successfully")
+        except Exception as e:
+            logger.error("Failed to start cleanup tasks", error=str(e))
         
-        # 添加API路由
-        app.include_router(auth.router, prefix="/api")
-        app.include_router(gmail.router, prefix="/api")
-        app.include_router(agents.router, prefix="/api")
-        app.include_router(reports.router, prefix="/api")
-        logger.info("API routers included successfully")
+        # Start background sync tasks
+        try:
+            await background_sync_tasks.start()
+            logger.info("Background sync tasks started successfully")
+        except Exception as e:
+            logger.error("Failed to start background sync tasks", error=str(e))
+    
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Shutdown event"""
+        logger.info("Shutting down MailAssistant application")
         
-        # 启动时初始化数据库
-        @app.on_event("startup")
-        async def startup_event():
-            """Initialize database on startup"""
-            try:
-                create_tables()
-                logger.info("Database tables initialized")
-            except Exception as e:
-                logger.error(f"Database initialization failed: {e}")
+        # Stop cleanup tasks
+        try:
+            await cleanup_manager.stop()
+            logger.info("Cleanup tasks stopped successfully")
+        except Exception as e:
+            logger.error("Failed to stop cleanup tasks", error=str(e))
         
-        # 更新健康检查以反映完整功能
-        @app.get("/health")
-        async def health_check_full():
-            """Enhanced health check endpoint"""
-            return {
-                "status": "healthy",
-                "app": "MailAssistant",
-                "version": "1.0.0",
-                "mode": "full_features",
-                "api_routes": ["auth", "gmail", "agents", "reports"]
-            }
-        
-        logger.info("Full application features loaded successfully")
-        
-    else:
-        logger.info(f"Missing environment variables: {missing_vars}")
-        logger.info("Running in basic mode")
-        
+        # Stop background sync tasks
+        try:
+            await background_sync_tasks.stop()
+            logger.info("Background sync tasks stopped successfully")
+        except Exception as e:
+            logger.error("Failed to stop background sync tasks", error=str(e))
+    
+    # 更新CORS配置
+    app.middlewares.clear()  # 清除之前的中间件
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=settings.cors_allowed_methods,
+        allow_headers=settings.cors_allowed_headers,
+    )
+    
+    # Include routers
+    logger.info("Including API routers...")
+    app.include_router(auth.router, prefix="/api")
+    logger.info("Auth router included")
+    app.include_router(gmail.router, prefix="/api")
+    logger.info("Gmail router included")
+    app.include_router(agents.router, prefix="/api")
+    logger.info("Agents router included")
+    app.include_router(reports.router, prefix="/api")
+    logger.info("Reports router included")
+    
+    # Debug endpoints (only in development)
+    if settings.environment == "development":
+        from .api import debug_logs
+        app.include_router(debug_logs.router)
+    
+    # Socket.IO 状态端点
+    @app.get("/api/socket/status")
+    async def socket_status():
+        """Socket.IO 状态检查"""
+        return {
+            "active_connections": get_active_sessions_count(),
+            "status": "running"
+        }
+    
+    # Socket.IO 集成 - 在最后包装整个应用
+    app = socketio.ASGIApp(sio, other_asgi_app=app)
+    
+    logger.info("Full MailAssistant application loaded successfully")
+    
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint"""
+        return {
+            "status": "healthy",
+            "app": settings.app_name,
+            "version": settings.app_version
+        }
+    
+    # Root endpoint
+    @app.get("/")
+    async def root():
+        """Root endpoint"""
+        return {
+            "message": "MailAssistant API",
+            "version": settings.app_version,
+            "docs": "/docs"
+        }
+    
 except Exception as e:
-    logger.error(f"Failed to load full features: {str(e)}")
-    logger.info("Running in basic mode - health check still available")
+    logger.error(f"Failed to load full application: {str(e)}")
+    
+    # Fallback health check
+    @app.get("/health")
+    async def health_check_fallback():
+        """Fallback health check endpoint"""
+        return {
+            "status": "healthy",
+            "app": "MailAssistant",
+            "version": "1.0.0",
+            "mode": "fallback"
+        }
+    
+    # Fallback root endpoint
+    @app.get("/")
+    async def root_fallback():
+        """Fallback root endpoint"""
+        return {
+            "message": "MailAssistant API - Fallback Mode",
+            "version": "1.0.0",
+            "docs": "/docs"
+        }
 
 if __name__ == "__main__":
     import uvicorn
