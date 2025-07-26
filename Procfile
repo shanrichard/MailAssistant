@@ -1,1 +1,1 @@
-web: python -m gunicorn -w 2 -k uvicorn.workers.UvicornWorker test_main:app --bind 0.0.0.0:$PORT
+web: python -m gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.app.main:app --bind 0.0.0.0:$PORT
