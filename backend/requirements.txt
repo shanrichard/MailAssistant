@@ -33,6 +33,7 @@ structlog==23.2.0
 
 # LLM Graph Framework (0.3 系列稳定组合)
 langgraph==0.3.34
+langchain==0.3.69
 langchain-core==0.3.69
 langchain-openai==0.3.28
 langchain-anthropic==0.3.17
