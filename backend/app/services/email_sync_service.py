@@ -23,7 +23,11 @@ class EmailSyncService:
     """Service for synchronizing Gmail messages to local database"""
     
     def __init__(self):
-        pass
+        # Gmail API 速率限制配置
+        self.gmail_batch_size = 20  # 每批请求数量
+        self.gmail_batch_delay = 0.5  # 批次之间的延迟（秒）
+        self.gmail_rate_limit_delay = 2.0  # 遇到429错误时的延迟（秒）
+        self.gmail_retry_delay = 1.0  # 重试单个请求的延迟（秒）
     
     def sync_user_emails(
         self, 
@@ -734,7 +738,7 @@ class EmailSyncService:
         user: User,
         query: str,
         max_results: int = 500,
-        batch_size: int = 50,      # Gmail API批量大小
+        batch_size: int = 30,      # Gmail API批量大小（减少以避免429错误）
         commit_interval: int = 100, # 多少条记录后提交
         memory_threshold_mb: int = 100  # 内存增长阈值
     ) -> Dict[str, int]:
@@ -858,34 +862,46 @@ class EmailSyncService:
         gmail_service: 'GmailService',
         user: User,
         messages: List[Dict[str, str]],
-        batch_size: int = 50
+        batch_size: int = None  # 使用类配置的批次大小
     ) -> List[Dict]:
         """使用Gmail Batch API批量获取邮件详情
         
-        Google官方建议每批不超过50个请求以减少限流风险
+        减少批次大小并添加延迟以避免429错误
         
         Args:
             gmail_service: Gmail服务实例
             user: 用户对象
             messages: 消息ID列表
-            batch_size: 每批大小（默认50）
+            batch_size: 每批大小（默认20，减少并发请求）
             
         Returns:
             详细邮件信息列表
         """
         from googleapiclient.http import BatchHttpRequest
+        from googleapiclient.errors import HttpError
+        import time
+        
+        # 使用类配置的批次大小
+        if batch_size is None:
+            batch_size = self.gmail_batch_size
         
         detailed_messages = []
         service = gmail_service.get_service(user)
+        failed_messages = []
         
-        # 分批处理，每批最多50个
+        # 分批处理
         for i in range(0, len(messages), batch_size):
             batch_messages = messages[i:i + batch_size]
             batch_results = {}
+            batch_errors = {}
             
             def callback(request_id, response, exception):
                 if exception is not None:
-                    logger.error(f"Failed to get message {request_id}: {exception}")
+                    batch_errors[request_id] = exception
+                    if isinstance(exception, HttpError) and exception.resp.status == 429:
+                        # 记录429错误的消息ID以便重试
+                        msg_index = int(request_id)
+                        failed_messages.append(batch_messages[msg_index])
                 else:
                     batch_results[request_id] = response
             
@@ -907,17 +923,42 @@ class EmailSyncService:
                 # 执行批量请求
                 batch.execute()
                 
-                # 收集结果并解析
+                # 收集成功的结果
                 for idx in range(len(batch_messages)):
                     if str(idx) in batch_results:
                         raw_message = batch_results[str(idx)]
                         parsed_message = gmail_service.parse_message(raw_message)
                         detailed_messages.append(parsed_message)
+                
+                # 如果有429错误，添加延迟
+                if any(isinstance(e, HttpError) and e.resp.status == 429 
+                       for e in batch_errors.values()):
+                    logger.warning(f"Rate limit hit, waiting {self.gmail_rate_limit_delay} seconds before next batch")
+                    time.sleep(self.gmail_rate_limit_delay)
+                else:
+                    # 正常情况下也添加小延迟避免过快请求
+                    time.sleep(self.gmail_batch_delay)
                         
             except Exception as e:
                 logger.error(f"Batch request failed: {e}")
                 # 继续处理下一批
                 continue
+        
+        # 重试失败的消息（单个请求，更慢但更可靠）
+        if failed_messages:
+            logger.info(f"Retrying {len(failed_messages)} failed messages individually")
+            for msg in failed_messages:
+                try:
+                    time.sleep(self.gmail_retry_delay)  # 使用类配置的重试延迟
+                    raw_message = service.users().messages().get(
+                        userId='me',
+                        id=msg['id'],
+                        format='full'
+                    ).execute()
+                    parsed_message = gmail_service.parse_message(raw_message)
+                    detailed_messages.append(parsed_message)
+                except Exception as e:
+                    logger.error(f"Failed to get message {msg['id']} on retry: {e}")
         
         return detailed_messages
     
