@@ -5,8 +5,6 @@ from typing import Optional, Dict, Any, List
 from enum import Enum
 
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chat_models.base import BaseChatModel
 
 from ..core.config import settings
@@ -16,8 +14,6 @@ logger = get_logger(__name__)
 
 class LLMProviderType(str, Enum):
     OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    GEMINI = "gemini"
 
 class LLMProviderManager:
     """LLM Provider管理器"""
@@ -27,7 +23,7 @@ class LLMProviderManager:
         self._initialize_providers()
     
     def _initialize_providers(self):
-        """初始化所有可用的LLM providers"""
+        """初始化OpenAI LLM provider"""
         try:
             # OpenAI
             if settings.llm.openai_api_key:
@@ -37,27 +33,11 @@ class LLMProviderManager:
                     temperature=0.1
                 )
                 logger.info("OpenAI provider initialized")
-            
-            # Anthropic
-            if settings.llm.anthropic_api_key:
-                self._providers[LLMProviderType.ANTHROPIC] = ChatAnthropic(
-                    api_key=settings.llm.anthropic_api_key,
-                    model="claude-3-5-sonnet-20241022",
-                    temperature=0.1
-                )
-                logger.info("Anthropic provider initialized")
-            
-            # Google Gemini
-            if settings.llm.gemini_api_key:
-                self._providers[LLMProviderType.GEMINI] = ChatGoogleGenerativeAI(
-                    api_key=settings.llm.gemini_api_key,
-                    model="gemini-1.5-pro",
-                    temperature=0.1
-                )
-                logger.info("Gemini provider initialized")
+            else:
+                logger.warning("OpenAI API key not configured")
                 
         except Exception as e:
-            logger.error("Failed to initialize LLM providers", error=str(e))
+            logger.error("Failed to initialize OpenAI provider", error=str(e))
     
     def get_llm(self, provider: str = None, model: str = None, temperature: float = None) -> BaseChatModel:
         """获取LLM实例"""
@@ -82,18 +62,6 @@ class LLMProviderManager:
                     model=model or settings.llm.default_model,
                     temperature=temperature if temperature is not None else 0.1
                 )
-            elif provider == LLMProviderType.ANTHROPIC:
-                return ChatAnthropic(
-                    api_key=settings.llm.anthropic_api_key,
-                    model=model or "claude-3-5-sonnet-20241022",
-                    temperature=temperature if temperature is not None else 0.1
-                )
-            elif provider == LLMProviderType.GEMINI:
-                return ChatGoogleGenerativeAI(
-                    api_key=settings.llm.gemini_api_key,
-                    model=model or "gemini-1.5-pro",
-                    temperature=temperature if temperature is not None else 0.1
-                )
         
         return base_llm
     
@@ -101,9 +69,7 @@ class LLMProviderManager:
         """使用fallback机制生成响应"""
         providers_to_try = [
             settings.llm.default_provider,
-            LLMProviderType.OPENAI,
-            LLMProviderType.ANTHROPIC,
-            LLMProviderType.GEMINI
+            LLMProviderType.OPENAI
         ]
         
         # 去重并过滤可用的providers
