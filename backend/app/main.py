@@ -61,8 +61,78 @@ try:
     # 更新logger
     logger = get_logger(__name__)
     
-    # 跳过复杂的启动逻辑，专注于健康检查
-    logger.info("Full imports completed, skipping startup logic")
+    # 启动时初始化数据库
+    @app.on_event("startup")
+    async def startup_event():
+        """Startup event"""
+        logger.info("Starting MailAssistant application", version=settings.app_version)
+        
+        # Create database tables
+        try:
+            create_tables()
+            logger.info("Database tables created successfully") 
+        except Exception as e:
+            logger.error("Failed to create database tables", error=str(e))
+            raise
+        
+        # Start cleanup tasks
+        try:
+            await cleanup_manager.start()
+            logger.info("Cleanup tasks started successfully")
+        except Exception as e:
+            logger.error("Failed to start cleanup tasks", error=str(e))
+        
+        # Start background sync tasks
+        try:
+            await background_sync_tasks.start()
+            logger.info("Background sync tasks started successfully")
+        except Exception as e:
+            logger.error("Failed to start background sync tasks", error=str(e))
+    
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Shutdown event"""
+        logger.info("Shutting down MailAssistant application")
+        
+        # Stop cleanup tasks
+        try:
+            await cleanup_manager.stop()
+            logger.info("Cleanup tasks stopped successfully")
+        except Exception as e:
+            logger.error("Failed to stop cleanup tasks", error=str(e))
+        
+        # Stop background sync tasks
+        try:
+            await background_sync_tasks.stop()
+            logger.info("Background sync tasks stopped successfully")
+        except Exception as e:
+            logger.error("Failed to stop background sync tasks", error=str(e))
+    
+    # 更新CORS配置
+    app.middlewares.clear()  # 清除之前的中间件
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=settings.cors_allowed_methods,
+        allow_headers=settings.cors_allowed_headers,
+    )
+    
+    # Include routers
+    logger.info("Including API routers...")
+    app.include_router(auth.router, prefix="/api")
+    logger.info("Auth router included")
+    app.include_router(gmail.router, prefix="/api")
+    logger.info("Gmail router included")
+    app.include_router(agents.router, prefix="/api")
+    logger.info("Agents router included")
+    app.include_router(reports.router, prefix="/api")
+    logger.info("Reports router included")
+    
+    # Debug endpoints (only in development)
+    if settings.environment == "development":
+        from .api import debug_logs
+        app.include_router(debug_logs.router)
     
     # Health check endpoint - 定义在FastAPI上，不受Socket.IO影响
     @app.get("/health")
