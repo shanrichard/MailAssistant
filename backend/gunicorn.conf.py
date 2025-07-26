@@ -17,7 +17,7 @@ max_requests_jitter = 50
 preload_app = True
 
 # Timeouts
-timeout = 120
+timeout = 1200  # 20 minutes for email sync operations
 keepalive = 30
 graceful_timeout = 30
 

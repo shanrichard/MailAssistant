@@ -235,8 +235,8 @@ class EmailSyncService:
             
             logger.info(f"Starting {timerange} email sync for user {user.id}")
             
-            # 使用现有的按查询同步方法
-            stats = self.sync_emails_by_query(db, user, query, max_results)
+            # 使用优化版本的按查询同步方法（带性能监控）
+            stats = self.sync_emails_by_query_with_monitoring(db, user, query, max_results)
             
             # 更新同步状态
             self._update_sync_status(
