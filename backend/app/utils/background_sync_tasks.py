@@ -6,6 +6,7 @@ import asyncio
 from typing import Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from ..core.database import SessionLocal
 from ..core.logging import get_logger
@@ -76,16 +77,32 @@ class BackgroundSyncTasks:
     
     async def _perform_auto_sync(self):
         """执行自动同步"""
-        logger.info("Starting auto sync for all active users")
+        # 使用 PostgreSQL 咨询锁防止多进程重复执行
+        # 锁ID: 987654321 (任意选择的唯一数字)
+        SYNC_LOCK_ID = 987654321
         
-        sync_count = 0
-        error_count = 0
-        
-        # 首先获取所有活跃用户ID，然后关闭会话
+        # 尝试获取咨询锁
         db = SessionLocal()
         try:
+            result = db.execute(text("SELECT pg_try_advisory_lock(:lock_id)"), {"lock_id": SYNC_LOCK_ID})
+            got_lock = result.scalar()
+            
+            if not got_lock:
+                logger.info("Another process is already performing auto sync, skipping")
+                return
+            
+            logger.info("Acquired sync lock, starting auto sync for all active users")
+            
+            sync_count = 0
+            error_count = 0
+            
+            # 获取所有活跃用户ID
             active_user_ids = [user.id for user in db.query(User).filter(User.is_active == True).all()]
         finally:
+            # 确保释放锁
+            if 'got_lock' in locals() and got_lock:
+                db.execute(text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": SYNC_LOCK_ID})
+                logger.info("Released sync lock")
             db.close()
         
         # 为每个用户创建独立的数据库会话
@@ -137,11 +154,24 @@ class BackgroundSyncTasks:
         user_id = sync_request['user_id']
         sync_type = sync_request['sync_type']
         
+        # 为每个用户生成唯一的锁ID（使用用户ID的哈希值）
+        # 确保锁ID在合理范围内（PostgreSQL bigint）
+        user_lock_id = abs(hash(user_id)) % 1000000000
+        
         logger.info(f"Executing manual sync: {sync_request}")
         
         # 为每个同步请求创建独立的数据库会话
         db = SessionLocal()
+        got_lock = False
         try:
+            # 尝试获取用户级别的咨询锁
+            result = db.execute(text("SELECT pg_try_advisory_lock(:lock_id)"), {"lock_id": user_lock_id})
+            got_lock = result.scalar()
+            
+            if not got_lock:
+                logger.warning(f"Another sync is already running for user {user_id}, skipping")
+                return
+            
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"User {user_id} not found for manual sync")
@@ -165,6 +195,10 @@ class BackgroundSyncTasks:
             logger.error(f"Manual sync execution failed for user {user_id}: {e}", exc_info=True)
             db.rollback()
         finally:
+            # 释放用户级别的锁
+            if got_lock:
+                db.execute(text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": user_lock_id})
+                logger.info(f"Released sync lock for user {user_id}")
             db.close()
     
     async def get_queue_status(self) -> Dict[str, Any]:
