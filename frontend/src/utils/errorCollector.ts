@@ -1,5 +1,6 @@
 // 前端错误收集器 - 仅用于开发环境调试
 import axios from 'axios';
+import { CONFIG } from '../config';
 
 class ErrorCollector {
   private readonly STORAGE_KEY = 'mailassistant_frontend_errors';
@@ -172,7 +173,7 @@ class ErrorCollector {
   }
 
   private async sendToBackend(errors: ErrorLog[]) {
-    const response = await axios.post('http://localhost:8000/api/debug/logs/all', {
+    const response = await axios.post(`${CONFIG.apiBaseUrl}/api/debug/logs/all`, {
       frontend_errors: errors
     }, {
       timeout: 5000 // 5秒超时
