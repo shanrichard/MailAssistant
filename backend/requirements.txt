@@ -31,15 +31,8 @@ httpx==0.25.2
 structlog==23.2.0
 
 
-# LLM Graph Framework (0.3 系列稳定组合)
-langgraph==0.3.34
-langchain==0.3.69
-langchain-core==0.3.69
-langchain-openai==0.3.28
-langchain-anthropic==0.3.17
-langchain-google-genai==2.1.8
-openai>=1.25,<2
-anthropic>=0.7.7,<1
+# LLM Graph Framework - 只保留主包测试
+langchain>=0.3.0,<0.4.0
 
 # Utilities
 python-dotenv==1.0.0
