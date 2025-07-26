@@ -111,11 +111,18 @@ if has_complete_config:
         from .core.config import settings
         from .core.database import create_tables
         from .core.logging import get_logger
+        logger.info("Core imports successful")
+        
         from .api import auth, gmail, agents, reports
+        logger.info("API routers imported successfully")
+        
         import socketio
         from .socketio_app import socket_app, get_active_sessions_count, sio
+        logger.info("Socket.IO imports successful")
+        
         from .utils.cleanup_tasks import cleanup_manager
         from .utils.background_sync_tasks import background_sync_tasks
+        logger.info("Background tasks imports successful")
         
         # 更新logger
         logger = get_logger(__name__)
@@ -178,10 +185,15 @@ if has_complete_config:
         )
         
         # Include routers
+        logger.info("Including API routers...")
         app.include_router(auth.router, prefix="/api")
+        logger.info("Auth router included")
         app.include_router(gmail.router, prefix="/api")
+        logger.info("Gmail router included")
         app.include_router(agents.router, prefix="/api")
+        logger.info("Agents router included")
         app.include_router(reports.router, prefix="/api")
+        logger.info("Reports router included")
         
         # Debug endpoints (only in development)
         if settings.environment == "development":
