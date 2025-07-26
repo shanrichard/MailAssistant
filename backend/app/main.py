@@ -142,12 +142,9 @@ try:
             "status": "running"
         }
     
-    # Socket.IO 集成 - 在最后包装整个应用
-    app = socketio.ASGIApp(sio, other_asgi_app=app)
-    
     logger.info("Full MailAssistant application loaded successfully")
     
-    # Health check endpoint
+    # Health check endpoint - 在Socket.IO包装之前定义
     @app.get("/health")
     async def health_check():
         """Health check endpoint"""
@@ -166,6 +163,9 @@ try:
             "version": settings.app_version,
             "docs": "/docs"
         }
+    
+    # Socket.IO 集成 - 在最后包装整个应用（包装后health check路由仍然可访问）
+    app = socketio.ASGIApp(sio, other_asgi_app=app)
     
 except Exception as e:
     logger.error(f"Failed to load full application: {str(e)}")
