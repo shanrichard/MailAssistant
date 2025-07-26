@@ -1,331 +1,142 @@
-# MailAssistant - AI驱动的智能邮件管家
+# MailAssistant - AI智能邮件助手
 
-<div align="center">
-  <h3>让AI帮你处理邮件，专注于真正重要的事</h3>
-  <p>基于LangGraph的Gmail智能助手，自动分析、分类和生成邮件日报</p>
-</div>
+> 让AI帮你处理邮件过载，专注真正重要的事情
 
-## 🎯 项目愿景
+MailAssistant是一个基于LangGraph的Gmail智能助手，通过AI自动分析、分类邮件并生成每日摘要，帮你从邮件海洋中解脱出来。
 
-MailAssistant致力于解决现代人的邮件过载问题。通过AI技术自动处理繁琐的邮件管理工作，让用户能够专注于真正重要的邮件和工作。
+## ✨ 核心功能
 
-## ✨ 核心特性
+- **🤖 智能对话助手** - 用自然语言管理邮件："帮我找昨天王总发的工作邮件"
+- **📊 自动邮件分析** - AI评估邮件重要性，自动分类工作、个人、广告邮件
+- **📝 每日智能摘要** - 生成个性化邮件日报，突出重要信息和待办事项
+- **🔍 智能搜索** - 告别复杂搜索语法，直接说"找本周的项目相关邮件"
+- **⚡ 实时同步** - 基于Gmail History API的增量同步，及时获取最新邮件
+- **🛠️ 批量操作** - 一句话完成邮件标记、归档、回复等批量操作
 
-### 智能邮件处理
-- 🤖 **AI自动分析**：使用多种LLM（OpenAI/Anthropic/Google）分析邮件重要性和紧急程度
-- 📊 **智能分类**：自动将邮件分类为工作、个人、广告等类别
-- 📝 **每日摘要**：生成个性化的邮件日报，突出重要信息
-- 🎯 **个性化学习**：根据用户反馈不断优化分析准确度
-- 🔄 **智能同步**：基于Gmail History API的增量同步机制
-
-### 对话式交互
-- 💬 **LangGraph对话引擎**：基于LangGraph的多轮对话Agent
-- 🔍 **智能搜索**：用自然语言搜索历史邮件
-- ⚡ **批量操作**：一句话完成批量标记、归档等操作
-- 📱 **实时通信**：WebSocket实时推送和交互
-- 🛠️ **丰富工具集**：邮件搜索、标记、归档等多种工具
-
-### 安全可靠
-- 🔐 **OAuth2认证**：使用Google官方认证，不存储密码
-- 🔒 **数据加密**：所有敏感数据加密存储
-- 🛡️ **隐私保护**：本地部署选项，数据不离开您的服务器
-- ✅ **权限最小化**：仅请求必要的Gmail权限
-
-## 🛠️ 技术架构
-
-```
-┌─────────────────────────────────────┐
-│     React Frontend (TypeScript)    │
-│   Pages: Chat|DailyReport|Settings │
-│   State: Zustand + React Query     │
-└──────────────┬──────────────────────┘
-               │ REST API + WebSocket
-┌──────────────┴──────────────────────┐
-│         FastAPI Backend             │
-│   LangGraph Agents + LangChain     │
-│   ConversationHandler + EmailTools │
-└──────────────┬──────────────────────┘
-               │
-┌──────────────┴──────────────────────┐
-│   PostgreSQL + SQLAlchemy ORM      │
-│   Alembic Migrations + Models      │
-└─────────────────────────────────────┘
-```
-
-### 技术栈详情
-
-**前端框架**
-- React 18 + TypeScript
-- Tailwind CSS + HeadlessUI
-- Zustand状态管理 + React Query
-- React Router + Socket.IO Client
-
-**后端框架**
-- FastAPI + Uvicorn
-- LangGraph 0.5.3 (最新)
-- LangChain + 多LLM提供商支持
-- SQLAlchemy 2.0 + Alembic
-- WebSocket实时通信
-
-**AI集成**
-- OpenAI GPT-4o
-- Anthropic Claude
-- Google Gemini
-- 智能工具调用和流式响应
-
-**数据库**
-- PostgreSQL 数据库
-- Alembic数据库迁移
-- 完整的数据模型：User、Email、Conversation、DailyReport等
-
-## 🚀 快速开始
+## 🚀 快速体验
 
 ### 环境要求
-- Python 3.11+ (推荐3.11.x)
+- Python 3.11+
 - Node.js 18+
 - PostgreSQL 15+
-- Google Cloud Console账号（用于OAuth配置）
+- Google账号（用于Gmail OAuth）
 
-### 1. 克隆项目
-```bash
-git clone https://github.com/yourusername/MailAssistant.git
-cd MailAssistant
+### 一键启动
+
+1. **克隆项目**
+   ```bash
+   git clone https://github.com/yourusername/MailAssistant.git
+   cd MailAssistant
+   ```
+
+2. **配置环境**
+   ```bash
+   cp .env.example .env
+   # 编辑 .env 文件，填写必要配置：
+   # - DATABASE_URL: PostgreSQL连接
+   # - GOOGLE_CLIENT_ID/SECRET: Google OAuth配置
+   # - 至少一个LLM API密钥 (OpenAI/Anthropic/Google)
+   ```
+
+3. **启动后端**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   cd backend && pip install -r requirements.txt
+   alembic upgrade head
+   cd .. && python3 start_backend.py
+   ```
+
+4. **启动前端**
+   ```bash
+   cd frontend
+   npm install && npm start
+   ```
+
+5. **开始使用**
+   
+   打开 http://localhost:3000，用Google账号登录即可开始体验AI邮件助手！
+
+## 💡 使用场景
+
+### 智能对话管理
+```
+你: "帮我找本周收到的重要工作邮件"
+AI: 找到了12封重要工作邮件，包括项目进度更新、会议邀请...
+
+你: "把昨天未读的广告邮件都标记为已读"
+AI: 已为您标记了8封广告邮件为已读状态
 ```
 
-### 2. 配置环境变量
-复制环境变量模板并填写配置：
-```bash
-cp .env.example .env
-```
+### 每日邮件摘要
+- 自动生成当日重要邮件概览
+- 识别需要回复的邮件和截止日期
+- 按优先级排序待处理事项
 
-关键环境变量配置：
-```bash
-# 数据库
-DATABASE_URL=postgresql://user:password@localhost:5432/mailassistant
+### 智能邮件分类
+- 工作邮件：项目更新、会议邀请、客户沟通
+- 个人邮件：朋友消息、家庭事务、兴趣爱好
+- 系统邮件：通知、账单、订阅内容
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback
+## 🛠️ 技术特色
 
-# 安全密钥
-SECRET_KEY=your-secret-key
-ENCRYPTION_KEY=your-32-byte-encryption-key
+- **🧠 LangGraph对话引擎** - 支持复杂工具调用和多轮对话
+- **🔗 多LLM支持** - OpenAI GPT-4、Anthropic Claude、Google Gemini
+- **⚡ 实时通信** - WebSocket支持流式响应和实时推送
+- **🔐 安全可靠** - OAuth2认证，数据加密存储，权限最小化
+- **📱 响应式UI** - React + Tailwind，支持移动端访问
 
-# LLM API（至少配置一个）
-OPENAI_API_KEY=your-openai-key
-ANTHROPIC_API_KEY=your-anthropic-key
-GEMINI_API_KEY=your-gemini-key
-DEFAULT_LLM_PROVIDER=openai
-DEFAULT_LLM_MODEL=gpt-4o
+## 📁 项目结构
 
-# 应用配置
-DEBUG=true
-ENVIRONMENT=development
-```
-
-### 3. 启动后端
-```bash
-# 创建虚拟环境（在项目根目录）
-python3 -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# 或 .venv\Scripts\activate  # Windows
-
-# 安装依赖
-cd backend
-pip install -r requirements.txt
-
-# 运行数据库迁移
-alembic upgrade head
-
-# 启动开发服务器（回到根目录）
-cd ..
-python3 start_backend.py
-```
-
-后端将在 http://localhost:8000 启动
-
-### 4. 启动前端
-```bash
-# 新开终端
-cd frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm start
-```
-
-前端将在 http://localhost:3000 启动
-
-### 5. 访问应用
-打开浏览器访问 http://localhost:3000，使用Google账号登录即可开始使用。
-
-## 📖 使用指南
-
-### 主要功能页面
-
-1. **登录页面** - Google OAuth2认证
-2. **DailyReport页面** - 查看每日邮件摘要和分析
-3. **Chat页面** - 与AI助手对话，管理邮件
-4. **Settings页面** - 用户偏好设置和同步管理
-
-### 核心功能
-
-**智能对话**
-- 自然语言描述需求："帮我找昨天的工作邮件"
-- AI自动调用相应工具完成操作
-- 流式响应，实时显示处理过程
-
-**邮件同步**
-- 自动增量同步Gmail邮件
-- 智能去重和状态管理
-- 支持手动触发同步
-
-**日报生成**
-- 定时分析新邮件
-- 生成个性化日报
-- 支持历史日报查看
-
-## 🔧 开发指南
-
-### 项目结构
 ```
 MailAssistant/
-├── backend/              # FastAPI后端
-│   ├── app/
-│   │   ├── agents/       # LangGraph Agents
-│   │   ├── api/          # API路由
-│   │   ├── core/         # 核心配置
-│   │   ├── models/       # 数据模型
-│   │   ├── services/     # 业务服务
-│   │   └── utils/        # 工具函数
-│   ├── migrations/       # Alembic迁移
-│   └── tests/           # 后端测试
-├── frontend/            # React前端
-│   ├── src/
-│   │   ├── components/  # 通用组件
-│   │   ├── pages/       # 页面组件
-│   │   ├── services/    # API服务
-│   │   ├── stores/      # 状态管理
-│   │   └── utils/       # 工具函数
-│   └── public/         # 静态资源
-├── tasks/              # 任务文档系统
-├── docs/               # 项目文档
-├── scripts/            # 脚本工具
-├── .env.example        # 环境变量示例
-└── start_backend.py    # 后端启动脚本
+├── backend/          # FastAPI后端服务
+│   ├── app/agents/   # LangGraph AI Agents
+│   ├── app/api/      # REST API接口
+│   └── app/services/ # 业务服务层
+├── frontend/         # React前端应用
+│   ├── src/pages/    # 页面组件
+│   └── src/stores/   # 状态管理
+└── tasks/           # 开发任务文档
 ```
 
-### 开发特性
+## 🔒 隐私与安全
 
-**调试日志系统**
-- 前端错误自动收集
-- 后端API日志查看
-- 开发环境自动启用
+- ✅ 使用Google官方OAuth2，不存储用户密码
+- ✅ 所有敏感数据加密存储
+- ✅ 支持本地部署，数据不离开你的服务器
+- ✅ 已通过安全审计，修复潜在风险
+- ✅ 最小权限原则，仅请求必要的Gmail权限
 
-**API监控**
-```bash
-# 查看后端错误日志
-curl http://localhost:8000/api/debug/logs/backend
+## 📊 开发状态
 
-# 查看所有错误日志
-curl -X POST http://localhost:8000/api/debug/logs/all \
-  -H "Content-Type: application/json" \
-  -d '{"frontend_errors": []}'
-```
+当前版本：**v1.0.0** (生产就绪)
 
-**任务文档系统**
-- 基于RPE人机协作协议
-- 完整的任务追踪体系
-- 设计文档和实现分离
+**✅ 已完成功能**
+- 完整的Gmail集成和邮件同步
+- AI对话引擎和工具调用系统
+- 智能邮件分析和日报生成
+- React前端界面和WebSocket通信
+- 用户认证和权限管理
+- 安全审计和漏洞修复
 
-### 核心Agent架构
-
-**ConversationHandler**
-- 基于LangGraph的对话引擎
-- 支持工具调用和流式响应
-- 多轮对话状态管理
-
-**EmailProcessor**
-- 邮件内容分析和分类
-- 重要性评估算法
-- 个性化学习机制
-
-## 🧪 测试
-
-```bash
-# 后端测试
-cd backend
-python -m pytest tests/
-
-# 前端测试
-cd frontend
-npm test
-```
-
-## 🚢 部署
-
-### Docker部署（推荐）
-```bash
-# 构建和启动
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-```
-
-### 手动部署
-1. 配置生产环境变量
-2. 构建前端：`npm run build`
-3. 启动后端：`gunicorn -c gunicorn.conf.py`
-4. 配置反向代理（Nginx）
 
 ## 🤝 贡献指南
 
-### 开发规范
-- 遵循RPE人机协作协议
-- 使用项目根目录的`.venv`虚拟环境
-- 环境变量配置在根目录`.env`
+欢迎提交Issue和Pull Request！项目遵循[RPE人机协作协议](CLAUDE.md)进行开发。
+
+开发环境：
+- 使用项目根目录的 `.venv` 虚拟环境
+- 环境变量配置在根目录 `.env` 文件
 - 遵循Python PEP8和TypeScript规范
 
-### 贡献流程
-1. Fork项目
-2. 创建特性分支
-3. 编写测试用例
-4. 提交Pull Request
+## 📜 开源协议
 
-## 📊 项目状态
-
-当前版本：v1.0.0
-
-**已完成功能**
-- ✅ 完整的用户认证系统
-- ✅ Gmail API集成和邮件同步
-- ✅ LangGraph对话引擎
-- ✅ 邮件分析和日报生成
-- ✅ WebSocket实时通信
-- ✅ React前端界面
-
-**正在开发**
-- 🔄 性能优化和监控
-- 🔄 移动端适配
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🙏 致谢
-
-- Google Gmail API
-- OpenAI、Anthropic、Google的LLM支持
-- LangChain和LangGraph社区
-- 所有贡献者的努力
+本项目基于 MIT 协议开源 - 查看 [LICENSE](LICENSE) 了解详情
 
 ---
 
 <div align="center">
-  <p>如果这个项目对您有帮助，请给一个⭐️！</p>
-  <p>Made with ❤️ by MailAssistant Team</p>
+  <p><strong>告别邮件过载，拥抱AI助手 🚀</strong></p>
+  <p>如果这个项目对你有帮助，请给个 ⭐️ 支持一下！</p>
 </div>
