@@ -38,21 +38,31 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 try:
-    logger.info("Loading minimal application for testing...")
+    logger.info("Loading application with full imports but minimal logic...")
     
-    # 最小导入测试
+    # 导入完整配置和功能
     from .core.config import settings
-    logger.info("Settings imported successfully")
+    from .core.database import create_tables
+    from .core.logging import get_logger
+    logger.info("Core imports successful")
     
-    # 跳过复杂的导入
-    # from .core.database import create_tables
-    # from .core.logging import get_logger
-    # from .api import auth, gmail, agents, reports
-    # from .utils.cleanup_tasks import cleanup_manager
-    # from .utils.background_sync_tasks import background_sync_tasks
+    from .api import auth, gmail, agents, reports
+    logger.info("API routers imported successfully")
+    
+    # Socket.IO 临时禁用用于测试
+    # import socketio
+    # from .socketio_app import socket_app, get_active_sessions_count, sio
+    # logger.info("Socket.IO imports successful")
+    
+    from .utils.cleanup_tasks import cleanup_manager
+    from .utils.background_sync_tasks import background_sync_tasks
+    logger.info("Background tasks imports successful")
+    
+    # 更新logger
+    logger = get_logger(__name__)
     
     # 跳过复杂的启动逻辑，专注于健康检查
-    logger.info("Minimal application setup complete")
+    logger.info("Full imports completed, skipping startup logic")
     
     # Health check endpoint - 定义在FastAPI上，不受Socket.IO影响
     @app.get("/health")
