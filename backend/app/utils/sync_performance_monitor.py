@@ -245,6 +245,69 @@ class SyncPerformanceMonitor:
         summary = " | ".join(summary_parts)
         logger.log(level, f"Sync Performance Summary: {summary}")
     
+    def log_detailed_performance(self, level: int = logging.INFO):
+        """记录详细的结构化性能日志
+        
+        输出结构化JSON格式的详细性能数据，包括：
+        - 总体性能指标（耗时、吞吐量等）
+        - 各阶段详细分解（耗时、占比）
+        - 性能分析（瓶颈识别、效率评估）
+        - 元数据信息
+        
+        Args:
+            level: 日志级别，默认为INFO
+        """
+        report = self.get_report()
+        
+        # 创建结构化的性能数据
+        detailed_log = {
+            "event_type": "sync_performance_detailed",
+            "summary": {
+                "total_duration": round(report['total_duration'], 3) if report['total_duration'] else 0,
+                "api_calls": report['api_calls'],
+                "messages_processed": report['metadata'].get('message_count', 0),
+                "throughput_msgs_per_sec": round(report['performance_metrics'].get('messages_per_second', 0), 2),
+                "api_calls_per_sec": round(report['performance_metrics'].get('api_calls_per_second', 0), 2)
+            },
+            "stages": {},
+            "performance_analysis": {},
+            "metadata": dict(report['metadata']),  # 创建副本避免引用问题
+            "timestamp": report['timestamp']
+        }
+        
+        # 详细阶段信息
+        if report['stages']:
+            for stage_name, stage_info in report['stages'].items():
+                detailed_log["stages"][stage_name] = {
+                    "duration": round(stage_info['duration'], 3),
+                    "percentage": round(report['performance_metrics'].get('stage_time_percentages', {}).get(stage_name, 0), 1)
+                }
+        
+        # 性能分析
+        if report['total_duration'] and report['total_duration'] > 0:
+            # 识别瓶颈阶段
+            bottleneck_stage = "unknown"
+            if report['stages']:
+                bottleneck_stage = max(report['stages'].items(), key=lambda x: x[1]['duration'])[0]
+            
+            # API效率评估
+            message_count = report['metadata'].get('message_count', 0)
+            api_efficiency = "optimized" if report['api_calls'] < message_count else "unoptimized"
+            if message_count == 0:
+                api_efficiency = "no_messages"
+            
+            # 同步速度评估
+            sync_speed = "fast" if report['total_duration'] < 30 else "medium" if report['total_duration'] < 90 else "slow"
+            
+            detailed_log["performance_analysis"] = {
+                "bottleneck_stage": bottleneck_stage,
+                "api_efficiency": api_efficiency,
+                "sync_speed": sync_speed
+            }
+        
+        # 输出结构化日志
+        logger.log(level, "SYNC_PERFORMANCE_DETAILED", extra=detailed_log)
+    
     def __str__(self) -> str:
         """字符串表示"""
         if self.total_start_time:

@@ -712,8 +712,13 @@ class EmailSyncService:
             
             # 5. 生成性能报告
             report = monitor.get_report()
+            
+            # 保持原有的简单格式（向后兼容）
             logger.info(f"Sync performance: {report['total_duration']:.2f}s, "
                        f"{report['api_calls']} API calls, {len(gmail_messages)} messages")
+            
+            # 新增详细的结构化日志
+            monitor.log_detailed_performance()
             
             return stats
             
