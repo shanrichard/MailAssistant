@@ -1,8 +1,9 @@
 """
 Authentication API routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from pydantic import BaseModel
@@ -56,29 +57,17 @@ async def get_google_auth_url() -> Dict[str, str]:
         )
 
 
-@router.get("/google/callback", response_model=TokenResponse)
-async def google_oauth_callback(
-    request: Request,
-    code: str,
-    state: str,
-    scope: str = None,
-    authuser: str = None,
-    hd: str = None,
-    prompt: str = None,
+@router.post("/google", response_model=TokenResponse)
+async def google_oauth_login(
+    request: GoogleAuthRequest,
     db: Session = Depends(get_db)
 ) -> TokenResponse:
     """Handle Google OAuth callback"""
     try:
-        # Construct full authorization_response URL from request
-        authorization_response = str(request.url)
-        
-        # Extract session_id from state (assuming state contains session_id)
-        session_id = state  # Temporary - need to check how state is structured
-        
         # Exchange authorization_response for tokens
         oauth_result = oauth_token_manager.exchange_code_for_tokens(
-            authorization_response=authorization_response,
-            session_id=session_id
+            authorization_response=request.authorization_response,
+            session_id=request.session_id
         )
         
         tokens = oauth_result['tokens']
@@ -135,15 +124,15 @@ async def google_oauth_callback(
         logger.error("Google OAuth callback failed", 
                     error=str(e),
                     error_type=type(e).__name__,
-                    code=code,
-                    state=state)
+                    authorization_response=request.authorization_response,
+                    session_id=request.session_id)
         
         # 根据环境决定错误详情
         if settings.environment == "development":
             error_detail = {
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "session_id": session_id,
+                "session_id": request.session_id,
                 "message": f"Authentication failed: {str(e)}"
             }
         else:
@@ -401,3 +390,43 @@ async def get_current_user_info(
             "gmail_connected": current_user.gmail_tokens is not None
         }
     }
+
+
+@router.get("/google/callback")
+async def google_oauth_callback(
+    code: str,
+    state: str,
+    scope: str = None,
+    authuser: str = None,
+    hd: str = None,
+    prompt: str = None
+):
+    """Handle Google OAuth callback and redirect to frontend"""
+    try:
+        # Construct the authorization response URL
+        query_params = f"code={code}&state={state}"
+        if scope:
+            query_params += f"&scope={scope}"
+        if authuser:
+            query_params += f"&authuser={authuser}"
+        if hd:
+            query_params += f"&hd={hd}"
+        if prompt:
+            query_params += f"&prompt={prompt}"
+        
+        # Redirect to frontend with the authorization response
+        # Use CORS allowed origins to determine frontend URL
+        frontend_base = settings.cors_allowed_origins[0] if settings.cors_allowed_origins else "http://localhost:3000"
+        frontend_url = f"{frontend_base}/auth/callback?{query_params}"
+        
+        logger.info("Redirecting to frontend", 
+                   frontend_url=frontend_url,
+                   session_state=state)
+        
+        return RedirectResponse(url=frontend_url)
+        
+    except Exception as e:
+        logger.error("OAuth callback redirect failed", error=str(e))
+        # Redirect to frontend with error
+        frontend_base = settings.cors_allowed_origins[0] if settings.cors_allowed_origins else "http://localhost:3000"
+        return RedirectResponse(url=f"{frontend_base}/auth/callback?error={str(e)}")
