@@ -1,15 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install --upgrade pip && pip install -r requirements.txt"
 
-[deploy]
-startCommand = "cd backend && python -m gunicorn -c gunicorn.conf.py app.main:app"
+[deploy] 
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
 
 [env]
 NIXPACKS_PYTHON_VERSION = "3.11.10"
-PIP_NO_CACHE_DIR = "1"
-PIP_DISABLE_PIP_VERSION_CHECK = "1"

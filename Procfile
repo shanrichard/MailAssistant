@@ -1,2 +1,1 @@
-web: cd backend && python -m gunicorn -c gunicorn.conf.py app.main:app
-release: cd backend && python run_migrations.py
+web: python -m gunicorn -w 2 -k uvicorn.workers.UvicornWorker test_main:app --bind 0.0.0.0:$PORT
