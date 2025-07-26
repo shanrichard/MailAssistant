@@ -65,17 +65,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    # 检查当前app是否有API路由
-    api_routes = [route.path for route in app.routes if route.path.startswith("/api")]
-    
     return {
         "status": "healthy",
         "app": "MailAssistant",
         "version": "1.0.0",
         "config_complete": has_complete_config,
-        "missing_env_vars": missing_env_vars if not has_complete_config else None,
-        "api_routes_count": len(api_routes),
-        "sample_api_routes": api_routes[:5] if api_routes else []
+        "missing_env_vars": missing_env_vars if not has_complete_config else None
     }
 
 # Root endpoint
