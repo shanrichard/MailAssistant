@@ -13,6 +13,17 @@
   min-height: 100vh;
 }
 
+/* 防止移动端水平滚动 */
+body, html {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 /* Scrollbar customization */
 ::-webkit-scrollbar {
   width: 8px;

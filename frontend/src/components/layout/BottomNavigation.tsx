@@ -10,7 +10,18 @@ import clsx from 'clsx';
 
 export const BottomNavigation: React.FC = () => {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+    <nav 
+      className="md:hidden bg-white border-t border-gray-200 shadow-lg z-[9999]"
+      style={{
+        position: 'fixed',
+        bottom: '0px',
+        left: '0px',
+        right: '0px',
+        zIndex: 9999,
+        transform: 'translateZ(0)',
+        willChange: 'transform'
+      }}
+    >
       <div className="flex justify-around py-2">
         {navigationItems.map((item) => (
           <NavLink
