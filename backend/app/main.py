@@ -133,18 +133,7 @@ try:
         from .api import debug_logs
         app.include_router(debug_logs.router)
     
-    # Socket.IO 状态端点
-    @app.get("/api/socket/status")
-    async def socket_status():
-        """Socket.IO 状态检查"""
-        return {
-            "active_connections": get_active_sessions_count(),
-            "status": "running"
-        }
-    
-    logger.info("Full MailAssistant application loaded successfully")
-    
-    # Health check endpoint - 在Socket.IO包装之前定义
+    # Health check endpoint - 定义在FastAPI上，不受Socket.IO影响
     @app.get("/health")
     async def health_check():
         """Health check endpoint"""
@@ -164,8 +153,20 @@ try:
             "docs": "/docs"
         }
     
-    # Socket.IO 集成 - 在最后包装整个应用（包装后health check路由仍然可访问）
-    app = socketio.ASGIApp(sio, other_asgi_app=app)
+    # Socket.IO 状态端点
+    @app.get("/api/socket/status")
+    async def socket_status():
+        """Socket.IO 状态检查"""
+        return {
+            "active_connections": get_active_sessions_count(),
+            "status": "running"
+        }
+    
+    # Socket.IO 集成 - 使用Mount子应用方式（推荐）
+    sio_app = socketio.ASGIApp(sio)  # 不传 other_asgi_app
+    app.mount("/ws", sio_app)        # 前端连 ws://host/ws/socket.io/
+    
+    logger.info("Full MailAssistant application loaded successfully")
     
 except Exception as e:
     logger.error(f"Failed to load full application: {str(e)}")
