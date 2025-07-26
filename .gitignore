@@ -130,7 +130,11 @@ dmypy.json
 # Temporary files
 *.tmp
 *.temp
+*.bak
 /tmp/
 
 # Backup folder for old test files and temporary scripts
 backup/
+
+# 项目任务文档（开源时不需要包含）
+tasks/
