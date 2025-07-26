@@ -65,12 +65,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    # 检查当前app是否有API路由
+    api_routes = [route.path for route in app.routes if route.path.startswith("/api")]
+    
     return {
         "status": "healthy",
         "app": "MailAssistant",
         "version": "1.0.0",
         "config_complete": has_complete_config,
-        "missing_env_vars": missing_env_vars if not has_complete_config else None
+        "missing_env_vars": missing_env_vars if not has_complete_config else None,
+        "api_routes_count": len(api_routes),
+        "sample_api_routes": api_routes[:5] if api_routes else []
     }
 
 # Root endpoint
@@ -223,7 +228,14 @@ if has_complete_config:
         
     except Exception as e:
         logger.error(f"Failed to load full application: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         logger.info("Running in minimal mode with health check only")
+        
+        # 更新全局变量，让健康检查显示实际状态
+        global has_complete_config
+        has_complete_config = False
 else:
     logger.info("Running in minimal mode - missing required environment variables")
     logger.info(f"Missing variables: {missing_env_vars}")
