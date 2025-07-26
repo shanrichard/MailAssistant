@@ -46,7 +46,7 @@ const MainLayout: React.FC = () => {
         
         {/* Main content */}
         <main className="flex-1 md:ml-48 pt-16 pb-16 md:pb-6 min-h-screen">
-          <div className="p-3 md:p-6">
+          <div className="p-0">
             <Outlet />
           </div>
         </main>
