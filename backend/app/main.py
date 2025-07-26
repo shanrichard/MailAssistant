@@ -61,55 +61,46 @@ try:
     # 更新logger
     logger = get_logger(__name__)
     
-    # 启动时初始化数据库
+    # 启动时初始化数据库 - Startup 里所有重活都包 try，不再 raise
     @app.on_event("startup")
     async def startup_event():
-        """Startup event"""
-        logger.info("Starting MailAssistant application", version=settings.app_version)
+        """Startup event - degraded mode safe"""
+        logger.info("⏳ startup begin", version=settings.app_version)
         
-        # Create database tables
+        # Create database tables - log 后继续
         try:
             create_tables()
             logger.info("Database tables created successfully") 
-        except Exception as e:
-            logger.error("Failed to create database tables", error=str(e))
-            raise
+        except Exception:
+            logger.exception("create_tables failed, continue startup")
         
-        # Start cleanup tasks
-        try:
-            await cleanup_manager.start()
-            logger.info("Cleanup tasks started successfully")
-        except Exception as e:
-            logger.error("Failed to start cleanup tasks", error=str(e))
+        # Start background tasks - 不让任何一个阻塞启动
+        for name, task in {"cleanup": cleanup_manager, "bg_sync": background_sync_tasks}.items():
+            try:
+                await task.start()
+                logger.info(f"{name} tasks started successfully")
+            except Exception:
+                logger.exception("%s start failed, continue", name)
         
-        # Start background sync tasks
-        try:
-            await background_sync_tasks.start()
-            logger.info("Background sync tasks started successfully")
-        except Exception as e:
-            logger.error("Failed to start background sync tasks", error=str(e))
+        logger.info("✅ startup done (degraded mode possible)")
     
     @app.on_event("shutdown")
     async def shutdown_event():
-        """Shutdown event"""
-        logger.info("Shutting down MailAssistant application")
+        """Shutdown event - safe cleanup"""
+        logger.info("🔄 shutdown begin")
         
-        # Stop cleanup tasks
-        try:
-            await cleanup_manager.stop()
-            logger.info("Cleanup tasks stopped successfully")
-        except Exception as e:
-            logger.error("Failed to stop cleanup tasks", error=str(e))
+        # Stop background tasks - 容错处理
+        for name, task in {"cleanup": cleanup_manager, "bg_sync": background_sync_tasks}.items():
+            try:
+                await task.stop()
+                logger.info(f"{name} tasks stopped successfully")
+            except Exception:
+                logger.exception("%s stop failed, continue", name)
         
-        # Stop background sync tasks
-        try:
-            await background_sync_tasks.stop()
-            logger.info("Background sync tasks stopped successfully")
-        except Exception as e:
-            logger.error("Failed to stop background sync tasks", error=str(e))
+        logger.info("✅ shutdown done")
     
-    # 更新CORS配置
-    app.middlewares.clear()  # 清除之前的中间件
+    # 更新CORS配置 - 移除危险的 middlewares.clear()
+    # app.middlewares.clear()  # FastAPI >0.110 这里会报错
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
