@@ -44,3 +44,4 @@ python-socketio
 # Utilities
 python-dotenv==1.0.0
 aiofiles==23.2.1
+psutil==6.0.0  # 系统资源监控，用于内存管理优化
