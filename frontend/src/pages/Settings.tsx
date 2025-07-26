@@ -168,7 +168,7 @@ const Settings: React.FC = () => {
                 </div>
 
                 {/* 解耦模式同步按钮 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={() => handleDecoupledSync('today')}
                     disabled={requesting}
@@ -193,17 +193,20 @@ const Settings: React.FC = () => {
                     {requesting ? '请求中...' : '请求同步本周'}
                   </button>
                   
-                  <button
-                    onClick={() => handleDecoupledSync('month')}
-                    disabled={requesting}
-                    className={`px-4 py-3 rounded-md font-medium transition-colors ${
-                      requesting
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-orange-600 text-white hover:bg-orange-700'
-                    }`}
-                  >
-                    {requesting ? '请求中...' : '请求同步本月'}
-                  </button>
+                  {/* 暂时隐藏同步本月功能，避免API配额耗尽 */}
+                  {false && (
+                    <button
+                      onClick={() => handleDecoupledSync('month')}
+                      disabled={requesting}
+                      className={`px-4 py-3 rounded-md font-medium transition-colors ${
+                        requesting
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-orange-600 text-white hover:bg-orange-700'
+                      }`}
+                    >
+                      {requesting ? '请求中...' : '请求同步本月'}
+                    </button>
+                  )}
                 </div>
 
                 {/* 解耦模式说明 */}
@@ -262,8 +265,8 @@ const Settings: React.FC = () => {
               </div>
             )}
             
-            {/* 新的三个同步按钮 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 同步按钮 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={handleSyncToday}
                 disabled={isSyncing}
@@ -288,17 +291,20 @@ const Settings: React.FC = () => {
                 {isSyncing ? '同步中...' : '同步本周'}
               </button>
               
-              <button
-                onClick={handleSyncMonth}
-                disabled={isSyncing}
-                className={`px-4 py-3 rounded-md font-medium transition-colors ${
-                  isSyncing
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-orange-600 text-white hover:bg-orange-700'
-                }`}
-              >
-                {isSyncing ? '同步中...' : '同步本月'}
-              </button>
+              {/* 暂时隐藏同步本月功能，避免API配额耗尽 */}
+              {false && (
+                <button
+                  onClick={handleSyncMonth}
+                  disabled={isSyncing}
+                  className={`px-4 py-3 rounded-md font-medium transition-colors ${
+                    isSyncing
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-orange-600 text-white hover:bg-orange-700'
+                  }`}
+                >
+                  {isSyncing ? '同步中...' : '同步本月'}
+                </button>
+              )}
             </div>
             
             {/* 同步结果显示 */}
