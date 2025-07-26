@@ -1,0 +1,2 @@
+web: python -m gunicorn -c gunicorn.conf.py app.main:app
+release: python run_migrations.py
