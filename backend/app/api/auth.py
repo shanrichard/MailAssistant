@@ -56,7 +56,7 @@ async def get_google_auth_url() -> Dict[str, str]:
         )
 
 
-@router.post("/google", response_model=TokenResponse)
+@router.post("/google/callback", response_model=TokenResponse)
 async def google_oauth_callback(
     request: GoogleAuthRequest,
     db: Session = Depends(get_db)
