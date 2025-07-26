@@ -6,7 +6,6 @@
 import React from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { 
-  BellIcon, 
   ChevronDownIcon, 
   UserIcon,
   CogIcon,
@@ -45,19 +44,6 @@ export const Header: React.FC = () => {
 
           {/* Right section */}
           <div className="flex items-center space-x-4">
-            {/* Notifications */}
-            <button
-              type="button"
-              className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full"
-            >
-              <span className="sr-only">View notifications</span>
-              <BellIcon className="h-6 w-6" />
-              {/* Notification badge */}
-              <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                3
-              </span>
-            </button>
-
             {/* User menu */}
             <Menu as="div" className="relative">
               <div>
