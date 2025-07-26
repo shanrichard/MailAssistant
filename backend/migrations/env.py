@@ -16,7 +16,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path
 
 # Import the models and database configuration
 from app.core.database import Base
-from app.models import User, Email, UserPreference, DailyReport, TaskLog
+from app.models import User, Email, DailyReport, TaskLog
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

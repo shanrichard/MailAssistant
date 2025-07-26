@@ -30,6 +30,10 @@ class GmailService:
             'https://www.googleapis.com/auth/gmail.modify'
         ]
     
+    def get_service(self, user: User):
+        """Get authenticated Gmail service for user (public method for batch requests)"""
+        return self._get_gmail_service(user)
+    
     def _get_gmail_service(self, user: User):
         """Get authenticated Gmail service for user"""
         try:
@@ -452,6 +456,100 @@ class GmailService:
             
         except HttpError as e:
             logger.error(f"Failed to get history changes for user {user.id}: {str(e)}")
+            raise
+    
+    def get_history_changes_detailed(self, user: User, start_history_id: str) -> Tuple[Dict[str, List[Dict]], str]:
+        """获取详细的历史变更信息，包括新增、删除、标签变更
+        
+        Returns:
+            (changes_dict, new_history_id)
+            changes_dict = {
+                'messages_added': [{'id': 'xxx', 'labels': [...]}],
+                'messages_deleted': [{'id': 'xxx'}],
+                'labels_added': [{'message_id': 'xxx', 'label_ids': [...]}],
+                'labels_removed': [{'message_id': 'xxx', 'label_ids': [...]}]
+            }
+        """
+        try:
+            service = self._get_gmail_service(user)
+            
+            logger.info(f"Fetching detailed history changes for user {user.id} from historyId {start_history_id}")
+            
+            all_history = []
+            page_token = None
+            
+            # 分页获取所有历史记录
+            while True:
+                params = {
+                    'userId': 'me',
+                    'startHistoryId': start_history_id,
+                    'historyTypes': ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved']
+                }
+                if page_token:
+                    params['pageToken'] = page_token
+                    
+                result = service.users().history().list(**params).execute()
+                
+                history_data = result.get('history', [])
+                all_history.extend(history_data)
+                
+                page_token = result.get('nextPageToken')
+                if not page_token:
+                    break
+            
+            # 解析历史记录
+            changes = {
+                'messages_added': [],
+                'messages_deleted': [],
+                'labels_added': [],
+                'labels_removed': []
+            }
+            
+            for history_entry in all_history:
+                # 处理新增邮件
+                for msg_added in history_entry.get('messagesAdded', []):
+                    message = msg_added.get('message', {})
+                    changes['messages_added'].append({
+                        'id': message.get('id'),
+                        'thread_id': message.get('threadId'),
+                        'label_ids': message.get('labelIds', [])
+                    })
+                
+                # 处理删除的邮件
+                for msg_deleted in history_entry.get('messagesDeleted', []):
+                    message = msg_deleted.get('message', {})
+                    changes['messages_deleted'].append({
+                        'id': message.get('id')
+                    })
+                
+                # 处理标签添加
+                for label_added in history_entry.get('labelsAdded', []):
+                    message = label_added.get('message', {})
+                    changes['labels_added'].append({
+                        'message_id': message.get('id'),
+                        'label_ids': label_added.get('labelIds', [])
+                    })
+                
+                # 处理标签移除
+                for label_removed in history_entry.get('labelsRemoved', []):
+                    message = label_removed.get('message', {})
+                    changes['labels_removed'].append({
+                        'message_id': message.get('id'),
+                        'label_ids': label_removed.get('labelIds', [])
+                    })
+            
+            # 获取新的historyId
+            new_history_id = result.get('historyId', start_history_id)
+            
+            logger.info(f"History changes: {len(changes['messages_added'])} added, "
+                       f"{len(changes['messages_deleted'])} deleted, "
+                       f"{len(changes['labels_added'])} labels added, "
+                       f"{len(changes['labels_removed'])} labels removed")
+            
+            return changes, new_history_id
+            
+        except HttpError as e:
+            logger.error(f"Failed to get detailed history changes for user {user.id}: {str(e)}")
             raise
     
     def get_current_history_id(self, user: User) -> str:
