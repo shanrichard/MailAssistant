@@ -49,10 +49,10 @@ try:
     from .api import auth, gmail, agents, reports
     logger.info("API routers imported successfully")
     
-    # Socket.IO 临时禁用用于测试
-    # import socketio
-    # from .socketio_app import socket_app, get_active_sessions_count, sio
-    # logger.info("Socket.IO imports successful")
+    # Socket.IO 恢复
+    import socketio
+    from .socketio_app import socket_app, get_active_sessions_count, sio
+    logger.info("Socket.IO imports successful")
     
     from .utils.cleanup_tasks import cleanup_manager
     from .utils.background_sync_tasks import background_sync_tasks
@@ -145,18 +145,17 @@ try:
             "docs": "/docs"
         }
     
-    # Socket.IO 状态端点 - 临时禁用
-    # @app.get("/api/socket/status")
-    # async def socket_status():
-    #     """Socket.IO 状态检查"""
-    #     return {
-    #         "active_connections": get_active_sessions_count(),
-    #         "status": "running"
-    #     }
+    # Socket.IO 状态端点
+    @app.get("/api/socket/status")
+    async def socket_status():
+        """Socket.IO 状态检查"""
+        return {
+            "active_connections": get_active_sessions_count(),
+            "status": "running"
+        }
     
-    # Socket.IO 集成 - 临时禁用用于测试
-    # sio_app = socketio.ASGIApp(sio)  # 不传 other_asgi_app
-    # app.mount("/ws", sio_app)        # 前端连 ws://host/ws/socket.io/
+    # Socket.IO 集成 - 使用原始包装方式（经过startup修复，应该安全）
+    app = socketio.ASGIApp(sio, other_asgi_app=app)
     
     logger.info("Full MailAssistant application loaded successfully")
     
