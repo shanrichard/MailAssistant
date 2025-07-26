@@ -8,7 +8,7 @@ import { ChatMessage, ToolCall, AgentThought, WebSocketMessage } from '../types'
 import { v4 as uuidv4 } from 'uuid';
 import { io, Socket } from 'socket.io-client';
 import useAuthStore from './authStore';
-import { CONFIG } from '../config';
+import { appConfig } from '../config';
 
 interface ChatStore {
   // 状态
@@ -158,7 +158,7 @@ const useChatStore = create<ChatStore>()((set, get) => ({
       const authStore = useAuthStore.getState();
       const token = authStore.token;
       
-      const socket = io(CONFIG.wsUrl, {
+      const socket = io(appConfig.wsUrl, {
         transports: ['websocket', 'polling'],
         timeout: 10000,
         retries: 3,
