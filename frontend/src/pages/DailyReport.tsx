@@ -72,14 +72,14 @@ const DailyReport: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-none md:max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
       <div className="bg-white rounded-lg shadow">
         {/* 页面标题和操作栏 */}
-        <div className="border-b border-gray-200 px-6 py-4">
+        <div className="border-b border-gray-200 px-4 md:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <DocumentTextIcon className="h-6 w-6 text-gray-600" />
-              <h1 className="text-xl font-semibold text-gray-900">今日邮件日报</h1>
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <DocumentTextIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-600" />
+              <h1 className="text-lg md:text-xl font-semibold text-gray-900">今日邮件日报</h1>
               {isSyncing && (
                 <span className="flex items-center text-sm text-blue-600">
                   <ArrowPathIcon className="h-4 w-4 animate-spin mr-1" />
@@ -91,7 +91,7 @@ const DailyReport: React.FC = () => {
             <button
               onClick={refreshReport}
               disabled={isRefreshing}
-              className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] md:min-h-0"
             >
               {isRefreshing ? (
                 <>
@@ -115,7 +115,7 @@ const DailyReport: React.FC = () => {
         </div>
 
         {/* 日报内容 */}
-        <div className="px-6 py-4">
+        <div className="px-4 md:px-6 py-4">
           {report?.status === 'processing' ? (
             <div className="text-center py-12">
               <ArrowPathIcon className="h-12 w-12 text-gray-400 animate-spin mx-auto mb-4" />

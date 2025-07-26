@@ -5,32 +5,15 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  DocumentTextIcon,
-  ChatBubbleLeftRightIcon,
-  CogIcon
-} from '@heroicons/react/24/outline';
-import { ROUTES } from '../../config';
+import { navigationItems } from '../../config/navigation';
 import clsx from 'clsx';
-
-interface NavigationItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const navigation: NavigationItem[] = [
-  { name: '日报', href: ROUTES.DAILY_REPORT, icon: DocumentTextIcon },
-  { name: '对话', href: ROUTES.CHAT, icon: ChatBubbleLeftRightIcon },
-  { name: '设置', href: ROUTES.SETTINGS, icon: CogIcon },
-];
 
 export const Sidebar: React.FC = () => {
   return (
-    <div className="fixed left-0 top-16 bottom-0 w-48 bg-white border-r border-gray-200">
+    <div className="hidden md:block fixed left-0 top-16 bottom-0 w-48 bg-white border-r border-gray-200">
       <nav className="px-3 py-6">
         <div className="space-y-2">
-          {navigation.map((item) => (
+          {navigationItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.href}

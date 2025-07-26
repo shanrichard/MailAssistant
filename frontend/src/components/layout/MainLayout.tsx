@@ -7,6 +7,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { BottomNavigation } from './BottomNavigation';
 import useAuthStore from '../../stores/authStore';
 import useChatStore from '../../stores/chatStore';
 
@@ -44,12 +45,15 @@ const MainLayout: React.FC = () => {
         <Sidebar />
         
         {/* Main content */}
-        <main className="flex-1 ml-64 pt-16 min-h-screen">
+        <main className="flex-1 md:ml-48 pt-16 pb-16 md:pb-6 min-h-screen">
           <div className="p-6">
             <Outlet />
           </div>
         </main>
       </div>
+      
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 };

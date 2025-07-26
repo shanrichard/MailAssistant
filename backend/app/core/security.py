@@ -43,10 +43,22 @@ class JWTManager:
         except jwt.JWTError:
             return None
     
-    def decode_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Decode JWT token without verification (for debugging)"""
+    def decode_token_unsafe(self, token: str, _unsafe_debug_only: bool = False) -> Optional[Dict[str, Any]]:
+        """
+        DANGER: Decode JWT token without verification
+        仅用于调试目的，生产环境禁用
+        """
+        if not _unsafe_debug_only:
+            raise ValueError("This method is unsafe and should only be used for debugging")
+        
+        if settings.environment != "development":
+            raise ValueError("Unsafe token decoding is disabled in production")
+        
         try:
             payload = jwt.decode(token, options={"verify_signature": False})
+            from .logging import get_logger
+            logger = get_logger(__name__)
+            logger.warning("Using unsafe token decoding - FOR DEBUGGING ONLY")
             return payload
         except jwt.JWTError:
             return None
@@ -56,15 +68,20 @@ class EncryptionManager:
     """Encryption/decryption for sensitive data"""
     
     def __init__(self):
-        # Ensure the key is properly formatted for Fernet
-        key = settings.encryption_key.encode()
-        # If key is not 32 bytes, derive it
-        if len(key) != 32:
-            key = base64.urlsafe_b64encode(key.ljust(32)[:32])
-        else:
-            key = base64.urlsafe_b64encode(key)
+        # 确保加密密钥符合安全要求
+        if not settings.encryption_key:
+            raise ValueError("ENCRYPTION_KEY environment variable is required")
         
-        self.fernet = Fernet(key)
+        key = settings.encryption_key.encode()
+        
+        # 强制要求32字节密钥，不允许自动填充
+        if len(key) != 32:
+            raise ValueError(
+                f"ENCRYPTION_KEY must be exactly 32 bytes, got {len(key)} bytes. "
+                "Generate a secure key using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        
+        self.fernet = Fernet(base64.urlsafe_b64encode(key))
     
     def encrypt(self, data: str) -> str:
         """Encrypt string data"""

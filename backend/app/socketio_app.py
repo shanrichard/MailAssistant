@@ -18,15 +18,31 @@ from .models.user import User
 logger = get_logger(__name__)
 
 # 创建 Socket.IO 服务器
-sio = socketio.AsyncServer(
-    async_mode='asgi',
-    cors_allowed_origins=[
+def get_socketio_cors_origins():
+    """动态获取Socket.IO允许的CORS源"""
+    # 基础的开发环境源
+    origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "null"  # 允许文件系统访问用于测试
-    ],
-    logger=True,
-    engineio_logger=True
+    ]
+    
+    # 在开发环境添加null用于测试
+    if settings.environment == "development":
+        origins.append("null")
+    
+    # 添加配置的CORS源
+    origins.extend(settings.cors_allowed_origins)
+    
+    # 去重并返回
+    unique_origins = list(set(origins))
+    logger.info(f"Socket.IO CORS allowed origins: {unique_origins}")
+    return unique_origins
+
+sio = socketio.AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins=get_socketio_cors_origins(),
+    logger=settings.environment == "development",  # 生产环境减少日志
+    engineio_logger=settings.environment == "development"
 )
 
 # 连接会话存储

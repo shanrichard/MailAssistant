@@ -112,7 +112,7 @@ const Chat: React.FC = () => {
           <button
             onClick={handleSend}
             disabled={!isConnected || !input.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+            className="px-4 md:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 min-h-[44px]"
           >
             发送
           </button>

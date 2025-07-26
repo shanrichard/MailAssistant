@@ -1,0 +1,3 @@
+# 部署测试脚本依赖
+requests>=2.31.0
+websockets>=12.0

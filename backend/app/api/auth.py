@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..core.database import get_db
 from ..core.security import jwt_manager
 from ..core.logging import get_logger
+from ..core.config import settings
 from ..services.oauth_service import oauth_token_manager
 from ..models.user import User
 
@@ -124,13 +125,22 @@ async def google_oauth_callback(
                     error_type=type(e).__name__,
                     authorization_response=request.authorization_response,
                     session_id=request.session_id)
-        # 返回更详细的错误信息用于调试
-        error_detail = {
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "session_id": request.session_id,
-            "message": f"Authentication failed: {str(e)}"
-        }
+        
+        # 根据环境决定错误详情
+        if settings.environment == "development":
+            error_detail = {
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "session_id": request.session_id,
+                "message": f"Authentication failed: {str(e)}"
+            }
+        else:
+            # 生产环境只返回通用错误信息
+            error_detail = {
+                "message": "Authentication failed. Please try again.",
+                "error_code": "AUTH_ERROR"
+            }
+        
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_detail
@@ -376,8 +386,6 @@ async def get_current_user_info(
             "email": current_user.email,
             "name": current_user.name,
             "avatar_url": current_user.avatar_url,
-            "gmail_connected": current_user.gmail_tokens is not None,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-            "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None
+            "gmail_connected": current_user.gmail_tokens is not None
         }
     }

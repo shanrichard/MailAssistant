@@ -35,10 +35,21 @@ export const Header: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo and title */}
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <h1 className="text-xl font-semibold text-gray-900">
-                MailAssistant
-              </h1>
+            <div className="flex-shrink-0 flex items-center">
+              <button 
+                onClick={() => navigate(ROUTES.DAILY_REPORT)}
+                className="flex items-center space-x-2 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg p-1"
+                aria-label="返回主页"
+              >
+                <img 
+                  src="/logo.svg" 
+                  alt="MailAssistant Logo" 
+                  className="h-8 w-8 object-contain"
+                />
+                <h1 className="text-xl font-semibold text-gray-900">
+                  MailAssistant
+                </h1>
+              </button>
             </div>
           </div>
 
