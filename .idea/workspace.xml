@@ -5,22 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="94577998-05fd-41e9-a0bb-fea421b2d66e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements.txt.backup" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/test_checkpointer_error.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/test_gmail_integration.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/AuthActions.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/AuthPersistence.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/AuthStateManagement.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/BasicTest.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/DailyReportBasic.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/DailyReportStructure.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/LoginComponent.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/LoginPage.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/ProjectStartup.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/RouteArchitecture.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/RouteRedirection.test.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/RouteSystem.test.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
