@@ -12,6 +12,7 @@ from .api import auth, gmail, agents, reports
 import socketio
 from .socketio_app import socket_app, get_active_sessions_count, sio
 from .utils.cleanup_tasks import cleanup_manager
+from .utils.background_sync_tasks import background_sync_tasks
 
 logger = get_logger(__name__)
 
@@ -37,6 +38,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("Failed to start cleanup tasks", error=str(e))
     
+    # Start background sync tasks
+    try:
+        await background_sync_tasks.start()
+        logger.info("Background sync tasks started successfully")
+    except Exception as e:
+        logger.error("Failed to start background sync tasks", error=str(e))
+    
     yield
     
     # Shutdown
@@ -48,6 +56,13 @@ async def lifespan(app: FastAPI):
         logger.info("Cleanup tasks stopped successfully")
     except Exception as e:
         logger.error("Failed to stop cleanup tasks", error=str(e))
+    
+    # Stop background sync tasks
+    try:
+        await background_sync_tasks.stop()
+        logger.info("Background sync tasks stopped successfully")
+    except Exception as e:
+        logger.error("Failed to stop background sync tasks", error=str(e))
 
 
 # Create FastAPI app
@@ -61,10 +76,10 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Specific origins for credentials
+    allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.cors_allowed_methods,
+    allow_headers=settings.cors_allowed_headers,
 )
 
 

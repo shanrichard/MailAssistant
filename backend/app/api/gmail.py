@@ -12,6 +12,7 @@ import time
 from ..core.database import get_db
 from ..api.auth import get_current_user
 from ..models.user import User
+from ..models.email import Email
 from ..models.user_sync_status import UserSyncStatus
 from ..services.gmail_service import gmail_service
 from ..services.email_sync_service import email_sync_service
@@ -22,6 +23,7 @@ from ..utils.api_optimization import (
     OptimizationConfig,
     execute_with_fallback
 )
+from ..utils.background_sync_tasks import background_sync_tasks
 
 logger = get_logger(__name__)
 
@@ -521,3 +523,88 @@ async def get_performance_stats(
         "optimization_status": OptimizationConfig.get_optimization_status(),
         "timestamp": time.time()
     }
+
+
+# 新增：解耦同步架构的API端点
+
+@router.get("/emails/latest-time")
+async def get_latest_email_time(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户最新邮件时间 - 用于显示同步状态"""
+    try:
+        latest_email = db.query(Email).filter(
+            Email.user_id == current_user.id
+        ).order_by(Email.received_at.desc()).first()
+        
+        if latest_email:
+            return {
+                "success": True,
+                "latest_email_time": latest_email.received_at.isoformat(),
+                "latest_email_subject": latest_email.subject[:50] + "..." if len(latest_email.subject) > 50 else latest_email.subject,
+                "latest_email_sender": latest_email.sender
+            }
+        else:
+            return {
+                "success": True,  
+                "latest_email_time": None,
+                "message": "暂无邮件数据"
+            }
+    except Exception as e:
+        logger.error(f"Failed to get latest email time for user {current_user.id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sync/request/{sync_type}")
+async def request_sync(
+    sync_type: str,
+    current_user: User = Depends(get_current_user)
+):
+    """请求同步（非阻塞）- 解耦架构的核心接口"""
+    try:
+        # 验证同步类型
+        if sync_type not in ['today', 'week', 'month']:
+            raise HTTPException(status_code=400, detail="Invalid sync type")
+        
+        # 使用后台任务队列处理同步请求
+        await background_sync_tasks.request_manual_sync(
+            user_id=str(current_user.id), 
+            sync_type=sync_type
+        )
+        
+        sync_type_names = {
+            'today': '今天',
+            'week': '本周', 
+            'month': '本月'
+        }
+        
+        return {
+            "success": True,
+            "message": f"{sync_type_names[sync_type]}同步请求已接收，正在后台处理。请稍后刷新页面查看更新。",
+            "sync_type": sync_type,
+            "requested_at": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to request sync for user {current_user.id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sync/queue-status")
+async def get_sync_queue_status(
+    current_user: User = Depends(get_current_user)
+):
+    """获取同步队列状态（调试和监控用）"""
+    try:
+        status = await background_sync_tasks.get_queue_status()
+        return {
+            "success": True,
+            "queue_status": status,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get sync queue status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

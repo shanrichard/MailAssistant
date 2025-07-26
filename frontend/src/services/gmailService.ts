@@ -236,6 +236,39 @@ class GmailService {
     
     return response;
   }
+
+  /**
+   * 获取最新邮件时间 - 解耦架构
+   */
+  async getLatestEmailTime(): Promise<any> {
+    const response = await apiClient.get(
+      `${this.baseUrl}/emails/latest-time`
+    );
+    
+    return response;
+  }
+
+  /**
+   * 请求同步（非阻塞）- 解耦架构
+   */
+  async requestSync(syncType: 'today' | 'week' | 'month'): Promise<any> {
+    const response = await apiClient.post(
+      `${this.baseUrl}/sync/request/${syncType}`
+    );
+    
+    return response;
+  }
+
+  /**
+   * 获取同步队列状态
+   */
+  async getSyncQueueStatus(): Promise<any> {
+    const response = await apiClient.get(
+      `${this.baseUrl}/sync/queue-status`
+    );
+    
+    return response;
+  }
 }
 
 export const gmailService = new GmailService();
