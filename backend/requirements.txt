@@ -31,8 +31,11 @@ httpx==0.25.2
 structlog==23.2.0
 
 
-# LLM Graph Framework - 只保留主包测试
+# LLM Graph Framework - 逐步添加必需包
 langchain>=0.3.0,<0.4.0
+langchain-openai
+openai>=1.25,<2
+langgraph
 
 # Utilities
 python-dotenv==1.0.0
