@@ -21,70 +21,39 @@ export interface SyncResult {
   task_id?: string;
 }
 
-export interface ShouldSyncResult {
-  needsSync: boolean;
-  reason: 'firstSync' | 'thresholdExceeded' | 'scheduled';
-  lastSyncTime: string | null;
-  emailCount: number;
-  isFirstSync: boolean;
-}
-
-export interface SyncProgress {
-  success: boolean;
-  isRunning: boolean;
-  progress: number;
-  stats: SyncStats;
-  error: string | null;
-  syncType: string;
-  startedAt: string | null;
-  updatedAt: string | null;
-}
-
-export interface SmartSyncOptions {
-  force_full?: boolean;
-  background?: boolean;
-}
+// 简化的接口定义，删除复杂的同步选项
 
 class GmailService {
   private baseUrl = '/api/gmail';
 
   /**
-   * 智能同步邮件
+   * 同步今天的邮件
    */
-  async smartSync(options: SmartSyncOptions = {}): Promise<SyncResult> {
-    const { force_full = false, background = false } = options;
-    
+  async syncToday(): Promise<SyncResult> {
     const response = await apiClient.post<SyncResult>(
-      `${this.baseUrl}/sync/smart`,
-      {},
-      {
-        params: {
-          force_full,
-          background
-        }
-      }
+      `${this.baseUrl}/sync/today`
     );
     
     return response;
   }
 
   /**
-   * 检查是否需要同步
+   * 同步本周的邮件
    */
-  async shouldSync(): Promise<ShouldSyncResult> {
-    const response = await apiClient.get<ShouldSyncResult>(
-      `${this.baseUrl}/sync/should-sync`
+  async syncWeek(): Promise<SyncResult> {
+    const response = await apiClient.post<SyncResult>(
+      `${this.baseUrl}/sync/week`
     );
     
     return response;
   }
 
   /**
-   * 获取同步进度
+   * 同步本月的邮件
    */
-  async getSyncProgress(taskId: string): Promise<SyncProgress> {
-    const response = await apiClient.get<SyncProgress>(
-      `${this.baseUrl}/sync/progress/${taskId}`
+  async syncMonth(): Promise<SyncResult> {
+    const response = await apiClient.post<SyncResult>(
+      `${this.baseUrl}/sync/month`
     );
     
     return response;
@@ -178,7 +147,7 @@ class GmailService {
   /**
    * 标记邮件为已读
    */
-  async markAsRead(emailIds: string[]): Promise<{ success: boolean; stats: any; message: string }> {
+  async markAsRead(emailIds: string[]): Promise<any> {
     const response = await apiClient.post(
       `${this.baseUrl}/mark-read`,
       {
@@ -192,7 +161,7 @@ class GmailService {
   /**
    * 按类别标记为已读
    */
-  async markCategoryAsRead(category: string): Promise<{ success: boolean; stats: any; message: string }> {
+  async markCategoryAsRead(category: string): Promise<any> {
     const response = await apiClient.post(
       `${this.baseUrl}/mark-read/category/${category}`
     );
@@ -203,7 +172,7 @@ class GmailService {
   /**
    * 获取Gmail用户资料
    */
-  async getProfile(): Promise<{ success: boolean; profile: any }> {
+  async getProfile(): Promise<any> {
     const response = await apiClient.get(
       `${this.baseUrl}/profile`
     );
@@ -214,7 +183,7 @@ class GmailService {
   /**
    * 获取邮件详情
    */
-  async getMessageDetails(messageId: string): Promise<{ success: boolean; message: any }> {
+  async getMessageDetails(messageId: string): Promise<any> {
     const response = await apiClient.get(
       `${this.baseUrl}/message/${messageId}`
     );
@@ -241,7 +210,7 @@ class GmailService {
   /**
    * 添加标签到邮件
    */
-  async addLabels(messageIds: string[], labelIds: string[]): Promise<{ success: boolean; message: string }> {
+  async addLabels(messageIds: string[], labelIds: string[]): Promise<any> {
     const response = await apiClient.post(
       `${this.baseUrl}/labels/add`,
       {
@@ -256,7 +225,7 @@ class GmailService {
   /**
    * 从邮件移除标签
    */
-  async removeLabels(messageIds: string[], labelIds: string[]): Promise<{ success: boolean; message: string }> {
+  async removeLabels(messageIds: string[], labelIds: string[]): Promise<any> {
     const response = await apiClient.post(
       `${this.baseUrl}/labels/remove`,
       {

@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { EmailStore, EmailMessage, DailyReport, EmailFilterOptions, SortOptions, AppError } from '../types';
+import { EmailStore, EmailMessage, DailyReportResponse, EmailFilterOptions, SortOptions, AppError } from '../types';
 import { emailService } from '../services/emailService';
 import { APP_CONSTANTS } from '../config';
 
@@ -28,7 +28,7 @@ interface ExtendedEmailStore extends EmailStore {
   searchEmails: (query: string) => Promise<void>;
   loadMoreEmails: () => Promise<void>;
   refreshEmails: () => Promise<void>;
-  syncEmails: () => Promise<void>;
+  // syncEmails 方法已删除，使用新的简单同步按钮
   markEmailAsRead: (emailId: string) => Promise<void>;
   markEmailAsUnread: (emailId: string) => Promise<void>;
   starEmail: (emailId: string) => Promise<void>;
@@ -67,7 +67,7 @@ const useEmailStore = create<ExtendedEmailStore>()((set, get) => ({
     set({ currentEmail: email });
   },
 
-  setDailyReport: (report: DailyReport | null) => {
+  setDailyReport: (report: DailyReportResponse | null) => {
     set({ dailyReport: report });
   },
 
@@ -173,21 +173,7 @@ const useEmailStore = create<ExtendedEmailStore>()((set, get) => ({
     await get().fetchEmails();
   },
 
-  syncEmails: async () => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      await emailService.syncEmails();
-      await get().fetchEmails();
-      
-      set({ isLoading: false });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to sync emails',
-        isLoading: false,
-      });
-    }
-  },
+  // syncEmails 方法已删除，使用新的简单同步按钮
 
   searchEmails: async (query: string) => {
     try {

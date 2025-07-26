@@ -4,6 +4,7 @@ ConversationHandler Agent - 基于LangGraph的对话处理代理
 from typing import List, Dict, Any, Optional, Annotated, TypedDict, Sequence
 from datetime import datetime, timezone
 import uuid
+import json
 from threading import Lock
 import asyncio
 
@@ -21,6 +22,7 @@ from ..core.cache import CheckpointerCache
 from ..core.errors import AppError, ErrorCategory, translate_error
 from ..core.retry import with_retry, CONVERSATION_RETRY_POLICY
 from ..models.conversation import ConversationMessage
+from ..utils.chunk_accumulator import ChunkAccumulator
 
 logger = get_logger(__name__)
 
@@ -235,6 +237,87 @@ class ConversationHandler(StatefulAgent):
 5. 批量操作和智能建议
 6. 实时状态反馈和进度跟踪
 
+## 重要：输出格式要求
+
+**你必须使用 Markdown 格式来组织所有回答**，这样可以让信息更清晰、更易读。请遵循以下格式化原则：
+
+- 使用 **粗体** 标记重要信息和关键词
+- 使用标题（## 或 ###）来组织内容结构
+- 使用列表（- 或 1. 2. 3.）展示多个项目
+- 使用 `行内代码` 标记邮件地址、时间等具体信息
+- 使用引用（>）来突出重要提示或总结
+- 使用表格展示对比信息（如有需要）
+- 使用分隔线（---）区分不同部分
+
+### Markdown 示例：
+```
+## 📧 邮件搜索结果
+
+找到 **3 封** 符合条件的邮件：
+
+### 重要邮件
+1. **张三** - `2024-01-20 14:30`
+   > 关于项目进度的重要更新
+
+2. **李四** - `2024-01-20 10:15`  
+   > 会议安排确认
+
+### 普通邮件
+- 系统通知 - `2024-01-20 09:00`
+
+---
+💡 **建议**：您有 2 封重要邮件需要及时处理。
+```
+
+邮件搜索指导原则：
+
+1. 时间相关查询：
+   - "最近"、"这几天" → 使用 days_back=3
+   - "今天" → 使用 days_back=1
+   - "本周"、"这周" → 使用 days_back=7
+   - "上周" → 使用 days_back=14
+   - "本月"、"这个月" → 使用 days_back=30
+
+2. 发件人相关查询：
+   重要：数据库中 sender 字段存储的是完整格式，例如：
+   - "Google <no-reply@accounts.google.com>"
+   - "张三 <zhangsan@example.com>"
+   - "Microsoft 帐户团队 <account-security-noreply@accountprotection.microsoft.com>"
+   - "support@alphavantage.co"（有些只有邮箱地址）
+   
+   使用 sender 参数的示例：
+   - "张三发的邮件" → 使用 sender="张三"
+   - "google的邮件" → 使用 sender="google"（会匹配 "Google <...>"、"googlecloud@google.com" 等）
+   - "微软的邮件" → 使用 sender="微软" 或 sender="microsoft"
+   - "@gmail.com的邮件" → 使用 sender="gmail.com"
+   - "最近有什么人给我发邮件" → 仅使用 days_back，不设置 sender，查看 sender_summary
+
+   sender 参数特性：
+   - 部分匹配：输入的文本会在整个 sender 字段中搜索
+   - 大小写不敏感：google 能匹配 Google，microsoft 能匹配 Microsoft
+   - 可以搜索：姓名（张三）、公司名（Google）、邮箱地址（gmail.com）、邮箱用户名（no-reply）
+
+3. 状态相关查询：
+   - "未读邮件" → 使用 is_read=False
+   - "已读邮件" → 使用 is_read=True
+   - "有附件的邮件" → 使用 has_attachments=True
+
+5. 组合查询示例：
+   - "张三最近发的重要邮件" → sender="张三", days_back=3，然后根据用户偏好分析结果
+   - "本周的未读邮件" → days_back=7, is_read=False
+   - "最近有什么人给我发邮件" → days_back=3, 不设置其他参数，查看sender_summary统计
+
+搜索无结果时的处理：
+当邮件搜索返回0条结果时，请：
+1. 告知用户没有找到符合条件的邮件
+2. 重要：查看返回数据中的 sender_summary 字段，它包含最近邮件的发件人统计
+3. 向用户展示 sender_summary 中的前几个发件人，让用户了解实际的发件人格式
+4. 建议用户：
+   - 如果搜索 "Microsoft"，可以试试 "微软" 或 "microsoft"
+   - 如果搜索公司名没结果，可以试试域名如 "microsoft.com"
+   - 查看 sender_summary 中的发件人，选择正确的关键词重试
+   - 使用 query 参数进行全文搜索
+
 交互原则：
 - 以友好、专业的方式与用户交流
 - 主动理解用户的隐含需求
@@ -245,6 +328,10 @@ class ConversationHandler(StatefulAgent):
 
 可用工具说明：
 - search_email_history: 搜索历史邮件
+  重要：必须使用关键字参数调用，例如：
+  search_email_history(days_back=3, sender="google")
+  search_email_history(query="会议", is_read=False)
+  不要使用位置参数如 search_email_history(3, "google")
 - read_daily_report: 读取邮件日报
 - bulk_mark_read: 批量标记邮件为已读
 - update_user_preferences: 更新用户偏好
@@ -252,13 +339,15 @@ class ConversationHandler(StatefulAgent):
 - get_task_status: 查询任务执行状态
 
 常见用户需求处理：
-- "帮我分析今天的邮件" → 触发日报生成并呈现结果
-- "把广告邮件都标记为已读" → 使用批量操作工具
-- "我觉得XX类邮件很重要" → 更新用户偏好设置
-- "帮我找XX相关的邮件" → 搜索邮件历史
-- "现在的任务进展如何" → 查询任务状态
+- "帮我分析今天的邮件" → 使用 trigger_email_processor(action="generate_daily_report")
+- "把广告邮件都标记为已读" → 使用 bulk_mark_read(criteria="广告邮件")
+- "我觉得XX类邮件很重要" → 使用 update_user_preferences(preference_description="XX类邮件很重要")
+- "帮我找google的邮件" → 使用 search_email_history(sender="google")
+- "最近3天的邮件" → 使用 search_email_history(days_back=3)
+- "最近3天google的邮件" → 使用 search_email_history(days_back=3, sender="google")
+- "现在的任务进展如何" → 使用 get_task_status(task_type="all")
 
-请根据用户的自然语言请求，智能选择合适的工具组合来完成任务。记住要保持对话的连贯性和上下文感知。"""
+请根据用户的自然语言请求，智能选择合适的工具组合来完成任务。记住要保持对话的连贯性和上下文感知，并始终使用 Markdown 格式输出。"""
     
     async def stream_response(self, message: str, session_id: str):
         """流式传输响应，包含工具调用信息"""
@@ -281,102 +370,83 @@ class ConversationHandler(StatefulAgent):
             self.db.add(user_msg)
             self.db.commit()
             
-            # 使用新的 astream API
+            # 使用新的 astream API（切换到messages模式以获取tool_call_chunks）
             response_id = str(uuid.uuid4())
             config = {"configurable": {"thread_id": f"{self.user_id}_{session_id}"}}
             
-            async for chunk in self.graph_agent.astream(
+            # 初始化工具调用状态跟踪
+            if not hasattr(self, '_active_tool_calls'):
+                self._active_tool_calls = {}
+            
+            # 初始化 chunk 累积器
+            accumulator = ChunkAccumulator(
+                min_chunk_size=settings.chunk_min_size,
+                max_wait_time=settings.chunk_max_wait,
+                delimiter_pattern=settings.chunk_delimiter_pattern
+            )
+            accumulated_content = ""  # 用于数据库写入
+            
+            async for chunk, metadata in self.graph_agent.astream(
                 input_state,
                 config=config,
-                stream_mode="updates"
+                stream_mode="messages"  # 切换到messages模式以获取tool_call_chunks
             ):
-                # 处理消息更新
-                if "agent" in chunk:
-                    for msg in chunk["agent"].get("messages", []):
-                        if isinstance(msg, AIMessage) and msg.content:
+                # 🎯 处理tool_call_chunks（LangGraph工具调用流）
+                if hasattr(chunk, 'tool_call_chunks') and chunk.tool_call_chunks:
+                    for tool_chunk in chunk.tool_call_chunks:
+                        async for event in self._handle_tool_call_chunk(tool_chunk):
+                            yield event
+                
+                # 处理AI响应内容
+                if hasattr(chunk, 'content') and chunk.content:
+                    # 🔍 检查是否是工具执行结果
+                    tool_result_event = self._extract_tool_result_from_content(chunk.content)
+                    if tool_result_event:
+                        # 这是工具执行结果，发送工具结果事件而不是普通响应
+                        yield tool_result_event
+                    else:
+                        # 使用累积器处理普通AI响应内容
+                        emit_content = accumulator.add(chunk.content)
+                        accumulated_content += chunk.content
+                        
+                        if emit_content:
                             yield {
                                 "type": "agent_response_chunk",
-                                "content": msg.content,
+                                "content": emit_content,
                                 "timestamp": datetime.now(timezone.utc).isoformat(),
                                 "id": response_id
                             }
-                            
-                            # 保存 AI 响应到数据库
-                            ai_msg = ConversationMessage(
-                                user_id=self.user_id,
-                                session_id=session_id,
-                                role="assistant",
-                                content=msg.content,
-                                message_type="ai_response"
-                            )
-                            self.db.add(ai_msg)
-                            self.db.commit()
                 
-                # 处理工具调用 - 适配新的 patch 结构
-                if "tool" in chunk:
-                    tool_data = chunk["tool"]
-                    # 工具开始事件
-                    if "name" in tool_data and "args" in tool_data:
-                        yield {
-                            "type": "tool_call_start",
-                            "tool_name": tool_data.get("name"),
-                            "tool_args": tool_data.get("args"),
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                            "id": str(uuid.uuid4())
-                        }
-                    # 工具结果事件
-                    if "output" in tool_data:
-                        output = tool_data.get("output")
-                        # 检查是否是错误响应
-                        if isinstance(output, dict) and "error" in output:
-                            yield {
-                                "type": "tool_error",
-                                "tool_name": tool_data.get("name"),
-                                "error": output["error"],
-                                "error_type": output.get("error_type", "Unknown"),
-                                "message": output.get("message", "工具执行失败"),
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
-                                "id": str(uuid.uuid4())
-                            }
-                        else:
-                            yield {
-                                "type": "tool_call_result",
-                                "tool_result": output,
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
-                                "id": str(uuid.uuid4())
-                            }
-                
-                # 保留原有的 tools chunk 处理作为后备
-                elif "tools" in chunk:
-                    for tool_call in chunk["tools"].get("messages", []):
-                        if hasattr(tool_call, 'name') and hasattr(tool_call, 'args'):
-                            yield {
-                                "type": "tool_call_start",
-                                "tool_name": tool_call.name,
-                                "tool_args": tool_call.args,
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
-                                "id": str(uuid.uuid4())
-                            }
-                        elif hasattr(tool_call, 'content'):
-                            content = tool_call.content
-                            # 检查是否是错误响应
-                            if isinstance(content, dict) and "error" in content:
-                                yield {
-                                    "type": "tool_error",
-                                    "tool_name": getattr(tool_call, 'name', 'unknown'),
-                                    "error": content["error"],
-                                    "error_type": content.get("error_type", "Unknown"),
-                                    "message": content.get("message", "工具执行失败"),
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                                    "id": str(uuid.uuid4())
-                                }
-                            else:
-                                yield {
-                                    "type": "tool_call_result",
-                                    "tool_result": content,
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                                    "id": str(uuid.uuid4())
-                                }
+                # 🗑️ 移除所有基于错误假设的工具调用处理代码
+                # 现在使用正确的tool_call_chunks处理机制
+            
+            # 发送剩余内容
+            final_content = accumulator.flush()
+            if final_content:
+                yield {
+                    "type": "agent_response_chunk",
+                    "content": final_content,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "id": response_id
+                }
+            
+            # 一次性写入完整消息到数据库
+            if accumulated_content:
+                ai_msg = ConversationMessage(
+                    user_id=self.user_id,
+                    session_id=session_id,
+                    role="assistant",
+                    content=accumulated_content,
+                    message_type="ai_response"
+                )
+                self.db.add(ai_msg)
+                self.db.commit()
+            
+            # 发送完成信号
+            yield {
+                "type": "conversation_complete",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
                 
         except Exception as e:
             # 转换为用户友好的错误
@@ -395,6 +465,117 @@ class ConversationHandler(StatefulAgent):
             error_response = app_error.to_dict()
             error_response['timestamp'] = datetime.now(timezone.utc).isoformat()
             yield error_response
+    
+    async def _handle_tool_call_chunk(self, tool_chunk):
+        """处理单个工具调用chunk - 基于真实的LangGraph结构"""
+        
+        # 🎯 第一个chunk：包含完整工具信息 (name, id, type)
+        if tool_chunk.get('name') and tool_chunk.get('id'):
+            tool_id = tool_chunk['id']
+            tool_name = tool_chunk['name']
+            
+            # 初始化工具调用状态
+            self._active_tool_calls[tool_id] = {
+                'name': tool_name,
+                'args_fragments': [tool_chunk.get('args', '')],  # 开始收集参数片段
+                'status': 'building_args',
+                'start_time': datetime.now(timezone.utc)
+            }
+            
+            logger.debug(f"Tool call started: {tool_name} (ID: {tool_id})", 
+                        user_id=self.user_id, tool_name=tool_name, tool_id=tool_id)
+            
+            # 🚀 发送工具调用开始事件
+            yield {
+                "type": "tool_call_start",
+                "tool_name": tool_name,
+                "tool_args": None,  # 参数还在构建中
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "id": tool_id
+            }
+        
+        # 🎯 后续chunks：累积参数片段 (只有args字段，name和id为None)
+        elif tool_chunk.get('args') is not None:
+            # 找到对应的活跃工具调用（最近的正在构建参数的调用）
+            active_call = None
+            for call_id, call_data in self._active_tool_calls.items():
+                if call_data['status'] == 'building_args':
+                    active_call = (call_id, call_data)
+                    break
+            
+            if active_call:
+                call_id, call_data = active_call
+                call_data['args_fragments'].append(tool_chunk['args'])
+                
+                # 🔧 尝试解析完整参数
+                full_args_str = ''.join(call_data['args_fragments'])
+                try:
+                    args_dict = json.loads(full_args_str)
+                    # 参数构建完成
+                    call_data['status'] = 'args_complete'
+                    call_data['args'] = args_dict
+                    
+                    logger.debug(f"Tool call args complete: {call_data['name']}", 
+                                user_id=self.user_id, tool_args=args_dict, tool_id=call_id)
+                    
+                    # 🎯 发送参数完整事件
+                    yield {
+                        "type": "tool_call_args_complete",
+                        "tool_name": call_data['name'],
+                        "tool_args": args_dict,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "id": call_id
+                    }
+                except json.JSONDecodeError:
+                    # 参数还在构建中，继续等待
+                    logger.debug(f"Tool call args building: {len(full_args_str)} chars", 
+                                user_id=self.user_id, args_preview=full_args_str[:100])
+                    pass
+            else:
+                # 没有找到对应的活跃工具调用，记录警告
+                logger.warning("Received tool args chunk but no active tool call found", 
+                              user_id=self.user_id, chunk_args=tool_chunk.get('args', '')[:50])
+
+    def _extract_tool_result_from_content(self, content):
+        """从AI响应内容中提取工具执行结果"""
+        try:
+            # 🔍 检查是否是JSON格式的工具结果
+            if content.strip().startswith('{"status"'):
+                # 尝试解析工具结果JSON
+                tool_result = json.loads(content.strip())
+                
+                # 找到对应的活跃工具调用
+                for call_id, call_data in list(self._active_tool_calls.items()):
+                    if call_data['status'] in ['building_args', 'args_complete']:
+                        # 找到匹配的工具调用，生成结果事件
+                        call_data['status'] = 'completed'
+                        call_data['result'] = tool_result
+                        
+                        # 🎯 发送工具执行结果事件
+                        result_event = {
+                            "type": "tool_call_result",
+                            "tool_name": call_data['name'],
+                            "tool_result": tool_result,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "id": call_id
+                        }
+                        
+                        # 清理已完成的工具调用
+                        del self._active_tool_calls[call_id]
+                        
+                        logger.debug(f"Tool call completed: {call_data['name']}", 
+                                    user_id=self.user_id, tool_id=call_id, 
+                                    result_size=len(str(tool_result)))
+                        
+                        return result_event
+                        
+        except (json.JSONDecodeError, KeyError, AttributeError) as e:
+            # 不是工具结果，返回None继续作为普通内容处理
+            logger.debug(f"Content is not tool result: {str(e)}", 
+                        user_id=self.user_id, content_preview=content[:50])
+            pass
+        
+        return None
     
     
     @classmethod
@@ -431,8 +612,9 @@ class ConversationHandler(StatefulAgent):
     def process(self, message: str) -> str:
         """同步处理消息（保持向后兼容）"""
         try:
-            # 使用基类的process方法
-            return super().process(message)
+            import asyncio
+            # 正确调用基类的异步方法
+            return asyncio.run(super().process(message))
         except Exception as e:
             logger.error("Process message failed", 
                         user_id=self.user_id,

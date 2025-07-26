@@ -3,7 +3,7 @@
  * 邮件相关API服务
  */
 
-import { EmailMessage, DailyReport, PaginatedResponse, ApiResponse } from '../types';
+import { EmailMessage, PaginatedResponse, ApiResponse, DailyReportResponse } from '../types';
 import { API_ENDPOINTS } from '../config';
 import apiClient from './apiClient';
 
@@ -37,11 +37,11 @@ class EmailService {
   }
 
   /**
-   * 同步邮件
+   * 同步邮件（已删除，使用新的简单同步方法）
    */
-  async syncEmails(): Promise<void> {
-    await apiClient.post(API_ENDPOINTS.GMAIL.SYNC);
-  }
+  // async syncEmails(): Promise<void> {
+  //   await apiClient.post(API_ENDPOINTS.GMAIL.SYNC);
+  // }
 
   /**
    * 搜索邮件
@@ -129,29 +129,29 @@ class EmailService {
   /**
    * 获取日报
    */
-  async getDailyReport(date?: string): Promise<DailyReport> {
-    const response = await apiClient.get<ApiResponse<DailyReport>>(
+  async getDailyReport(date?: string): Promise<DailyReportResponse> {
+    const response = await apiClient.get<DailyReportResponse>(
       API_ENDPOINTS.REPORTS.DAILY,
       {
         params: date ? { date } : {},
       }
     );
     
-    return response.data;
+    return response;
   }
 
   /**
    * 生成日报
    */
-  async generateDailyReport(date?: string): Promise<DailyReport> {
-    const response = await apiClient.post<ApiResponse<DailyReport>>(
+  async generateDailyReport(date?: string): Promise<DailyReportResponse> {
+    const response = await apiClient.post<DailyReportResponse>(
       API_ENDPOINTS.REPORTS.GENERATE,
       {
         date,
       }
     );
     
-    return response.data;
+    return response;
   }
 
   /**
@@ -172,7 +172,7 @@ export const emailService = new EmailService();
 export const getDailyReport = (date?: string) => emailService.getDailyReport(date);
 export const generateDailyReport = (date?: string) => emailService.generateDailyReport(date);
 export const getEmails = (params?: EmailListParams) => emailService.getEmails(params);
-export const syncEmails = () => emailService.syncEmails();
+// export const syncEmails = () => emailService.syncEmails(); // 已删除
 export const searchEmails = (query: string) => emailService.searchEmails(query);
 export const markAsRead = (emailIds: string[]) => emailService.markAsRead(emailIds);
 

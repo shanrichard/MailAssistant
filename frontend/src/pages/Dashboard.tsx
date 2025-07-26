@@ -8,7 +8,6 @@ import useAuthStore from '../stores/authStore';
 import useEmailStore from '../stores/emailStore';
 import useChatStore from '../stores/chatStore';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import type { EmailCategory } from '../types/dailyReport';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuthStore();
@@ -148,22 +147,15 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Daily report preview */}
-      {dailyReport && (
+      {dailyReport && dailyReport.status === 'completed' && (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Today's Report</h2>
           </div>
           <div className="p-6">
-            <p className="text-gray-600 mb-4">Today's email summary</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dailyReport.categorizedEmails.map((category: EmailCategory) => (
-                <div key={category.categoryName} className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">{category.categoryName}</h3>
-                  <p className="text-sm text-gray-600">{category.emails.length} emails</p>
-                  <p className="text-sm text-gray-500 mt-1">{category.summary}</p>
-                </div>
-              ))}
-            </div>
+            <p className="text-gray-600">
+              Daily report is available. Visit the Daily Report page to view details.
+            </p>
           </div>
         </div>
       )}

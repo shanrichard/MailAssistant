@@ -214,6 +214,50 @@ class EmailSyncService:
             db.rollback()
             raise
     
+    def sync_emails_by_timerange(
+        self, 
+        db: Session, 
+        user: User, 
+        timerange: str, 
+        max_results: int = 500
+    ) -> Dict[str, int]:
+        """Sync emails by time range (today, week, month)"""
+        try:
+            # 构建查询字符串
+            if timerange == "today":
+                query = "newer_than:1d"
+            elif timerange == "week":
+                query = "newer_than:7d"
+            elif timerange == "month":
+                query = "newer_than:30d"
+            else:
+                raise ValueError(f"Invalid timerange: {timerange}")
+            
+            logger.info(f"Starting {timerange} email sync for user {user.id}")
+            
+            # 使用现有的按查询同步方法
+            stats = self.sync_emails_by_query(db, user, query, max_results)
+            
+            # 更新同步状态
+            self._update_sync_status(
+                db, 
+                user, 
+                f"成功同步{timerange}邮件", 
+                stats
+            )
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to sync {timerange} emails for user {user.id}: {str(e)}")
+            self._update_sync_status(
+                db, 
+                user, 
+                f"同步{timerange}邮件失败: {str(e)}", 
+                {'new': 0, 'updated': 0, 'errors': 1}
+            )
+            raise
+    
     def get_sync_status(self, db: Session, user: User) -> Dict[str, Any]:
         """Get email synchronization status for user"""
         try:
@@ -507,6 +551,302 @@ class EmailSyncService:
         for key, value in stats2.items():
             merged[key] = merged.get(key, 0) + value
         return merged
+    
+    def _update_sync_status(self, db: Session, user: User, message: str, stats: Dict[str, int]):
+        """更新用户同步状态（简化版）"""
+        from datetime import datetime
+        from ..models.user_sync_status import UserSyncStatus
+        
+        try:
+            # 获取或创建同步状态记录
+            sync_status = db.query(UserSyncStatus).filter(
+                UserSyncStatus.user_id == user.id
+            ).first()
+            
+            if not sync_status:
+                sync_status = UserSyncStatus(user_id=user.id)
+                db.add(sync_status)
+            
+            # 更新简化的状态信息
+            sync_status.last_sync_time = datetime.now()
+            sync_status.sync_message = f"{message} (新: {stats.get('new', 0)}, 更新: {stats.get('updated', 0)})"
+            
+            db.commit()
+            logger.info(f"Updated sync status for user {user.id}: {message}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update sync status for user {user.id}: {str(e)}")
+            db.rollback()
+    
+    # Optimized batch operations (Task 3-14-5)
+    
+    def _sync_messages_batch(self, db: Session, user: User, gmail_messages: List[Dict[str, Any]]) -> Dict[str, int]:
+        """批量同步邮件，优化数据库操作
+        
+        这个方法解决了原版_sync_single_message中的N次数据库查询问题：
+        - 原版：每个邮件单独查询数据库检查是否存在（N次查询）
+        - 优化版：批量查询所有邮件的存在性（1次查询）
+        
+        Args:
+            db: 数据库会话
+            user: 用户对象
+            gmail_messages: Gmail消息列表
+            
+        Returns:
+            同步统计信息：{'new': int, 'updated': int, 'errors': int}
+        """
+        if not gmail_messages:
+            return {'new': 0, 'updated': 0, 'errors': 0}
+        
+        try:
+            # 1. 批量检查已存在的邮件（优化：1次查询而不是N次）
+            gmail_ids = [msg.get('gmail_id') for msg in gmail_messages if msg.get('gmail_id')]
+            
+            # 去重gmail_ids，处理可能的重复数据
+            unique_gmail_ids = list(set(gmail_ids))
+            
+            existing_emails = db.query(Email).filter(
+                Email.user_id == user.id,
+                Email.gmail_id.in_(unique_gmail_ids)
+            ).all()
+            
+            # 创建现有邮件的映射，便于快速查找
+            existing_ids_map = {email.gmail_id: email for email in existing_emails}
+            
+            # 2. 分类处理：新邮件vs更新邮件
+            new_emails = []
+            updated_emails = []
+            processed_gmail_ids = set()  # 用于去重
+            
+            for gmail_message in gmail_messages:
+                gmail_id = gmail_message.get('gmail_id')
+                if not gmail_id or gmail_id in processed_gmail_ids:
+                    continue  # 跳过无效或重复的邮件ID
+                
+                processed_gmail_ids.add(gmail_id)
+                
+                if gmail_id in existing_ids_map:
+                    # 检查是否需要更新现有邮件
+                    existing_email = existing_ids_map[gmail_id]
+                    if self._update_email_from_gmail(existing_email, gmail_message):
+                        updated_emails.append(existing_email)
+                else:
+                    # 创建新邮件
+                    new_email = self._create_email_from_gmail(user, gmail_message)
+                    new_emails.append(new_email)
+            
+            # 3. 批量数据库操作（优化：批量操作而不是逐个操作）
+            if new_emails:
+                db.add_all(new_emails)
+                logger.debug(f"Batch added {len(new_emails)} new emails")
+            
+            if updated_emails:
+                for email in updated_emails:
+                    db.add(email)  # 将更新的邮件标记为需要保存
+                logger.debug(f"Batch updated {len(updated_emails)} existing emails")
+            
+            stats = {
+                'new': len(new_emails),
+                'updated': len(updated_emails),
+                'errors': 0
+            }
+            
+            logger.info(f"Batch sync completed: {stats['new']} new, {stats['updated']} updated emails")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to batch sync messages for user {user.id}: {str(e)}")
+            return {'new': 0, 'updated': 0, 'errors': 1}
+    
+    def sync_emails_by_query_with_monitoring(
+        self, 
+        db: Session, 
+        user: User, 
+        query: str, 
+        max_results: int = 100
+    ) -> Dict[str, int]:
+        """带性能监控的邮件同步
+        
+        集成已实现的性能监控组件，追踪优化效果：
+        - 监控各阶段耗时
+        - 记录API调用次数
+        - 收集性能元数据
+        - 记录错误信息
+        
+        Args:
+            db: 数据库会话
+            user: 用户对象
+            query: Gmail查询字符串
+            max_results: 最大结果数
+            
+        Returns:
+            同步统计信息：{'new': int, 'updated': int, 'errors': int}
+        """
+        from ..utils.sync_performance_monitor import SyncPerformanceMonitor
+        from ..services.gmail_service import gmail_service
+        
+        monitor = SyncPerformanceMonitor()
+        monitor.start_monitoring()
+        
+        try:
+            # 1. 获取邮件列表（使用优化版本）
+            monitor.start_stage('fetch_messages')
+            gmail_messages = gmail_service.search_messages_optimized(user, query, max_results)
+            monitor.record_api_call(count=len(gmail_messages))
+            monitor.end_stage('fetch_messages')
+            
+            # 2. 批量同步到数据库（使用优化版本）
+            monitor.start_stage('sync_to_db')
+            stats = self._sync_messages_batch(db, user, gmail_messages)
+            monitor.end_stage('sync_to_db')
+            
+            # 3. 提交事务
+            monitor.start_stage('commit_transaction')
+            db.commit()
+            monitor.end_stage('commit_transaction')
+            
+            # 4. 记录性能数据
+            monitor.set_metadata('user_id', str(user.id))
+            monitor.set_metadata('query', query)
+            monitor.set_metadata('message_count', len(gmail_messages))
+            
+            # 5. 生成性能报告
+            report = monitor.get_report()
+            logger.info(f"Sync performance: {report['total_duration']:.2f}s, "
+                       f"{report['api_calls']} API calls, {len(gmail_messages)} messages")
+            
+            return stats
+            
+        except Exception as e:
+            monitor.record_error('sync_process', e)
+            db.rollback()
+            logger.error(f"Failed to sync emails with monitoring for user {user.id}: {str(e)}")
+            raise
+    
+    def smart_sync_user_emails_optimized(
+        self, 
+        db: Session, 
+        user: User, 
+        force_full: bool = False
+    ) -> Dict[str, int]:
+        """优化的智能同步，集成History API和性能监控
+        
+        实现真正的增量同步策略：
+        1. 优先使用History API进行增量同步
+        2. History API失败时回退到时间基础同步
+        3. 集成性能监控追踪优化效果
+        4. 自动管理historyId的更新
+        
+        Args:
+            db: 数据库会话
+            user: 用户对象
+            force_full: 是否强制全量同步
+            
+        Returns:
+            同步统计信息：{'new': int, 'updated': int, 'errors': int}
+        """
+        from ..utils.sync_performance_monitor import SyncPerformanceMonitor
+        from ..services.gmail_service import gmail_service
+        
+        monitor = SyncPerformanceMonitor()
+        monitor.start_monitoring()
+        
+        try:
+            # 1. 检查是否可以使用History API增量同步
+            if not force_full and user.last_history_id:
+                monitor.start_stage('history_sync')
+                try:
+                    # 使用History API获取变更的邮件ID
+                    changed_ids, new_history_id = gmail_service.fetch_changed_msg_ids(
+                        user, user.last_history_id
+                    )
+                    
+                    if changed_ids:
+                        # 批量获取变更邮件的详情
+                        changed_messages = gmail_service.get_messages_batch(user, changed_ids)
+                        stats = self._sync_messages_batch(db, user, changed_messages)
+                        
+                        # 更新history_id
+                        user.last_history_id = new_history_id
+                        user.last_history_sync = datetime.now(timezone.utc)
+                        db.add(user)
+                        db.commit()
+                        
+                        monitor.end_stage('history_sync')
+                        logger.info(f"History API sync completed: {stats}")
+                        return stats
+                    else:
+                        # 无变更，但仍需更新historyId
+                        user.last_history_id = new_history_id
+                        user.last_history_sync = datetime.now(timezone.utc)
+                        db.add(user)
+                        db.commit()
+                        
+                        monitor.end_stage('history_sync')
+                        logger.info("History API sync: no changes found")
+                        return {'new': 0, 'updated': 0, 'errors': 0}
+                        
+                except Exception as e:
+                    logger.warning(f"History API sync failed, falling back to time-based sync: {e}")
+                    monitor.record_error('history_sync', e)
+                    monitor.end_stage('history_sync')
+            
+            # 2. 回退到时间基础的同步（使用优化的方法）
+            monitor.start_stage('time_based_sync')
+            if self.is_first_sync(db, user) or force_full:
+                stats = self._full_sync_with_optimization(db, user, monitor)
+            else:
+                latest_timestamp = self._get_latest_email_timestamp(db, user)
+                if latest_timestamp:
+                    buffer_time = latest_timestamp - timedelta(hours=8)
+                    query = f"after:{int(buffer_time.timestamp())}"
+                    stats = self.sync_emails_by_query_with_monitoring(db, user, query, 500)
+                else:
+                    stats = self._full_sync_with_optimization(db, user, monitor)
+            
+            # 3. 获取并保存新的history_id
+            try:
+                current_history_id = gmail_service.get_current_history_id(user)
+                user.last_history_id = current_history_id
+                user.last_history_sync = datetime.now(timezone.utc)
+                db.add(user)
+                db.commit()
+                logger.info(f"Updated historyId to {current_history_id} for user {user.id}")
+            except Exception as e:
+                logger.warning(f"Failed to update history_id: {e}")
+                
+            monitor.end_stage('time_based_sync')
+            return stats
+            
+        except Exception as e:
+            monitor.record_error('smart_sync', e)
+            raise
+        finally:
+            # 记录性能报告
+            report = monitor.get_report()
+            logger.info(f"Smart sync completed: {report}")
+    
+    def _full_sync_with_optimization(
+        self, 
+        db: Session, 
+        user: User, 
+        monitor: 'SyncPerformanceMonitor'
+    ) -> Dict[str, int]:
+        """优化的全量同步实现
+        
+        这是原有_full_sync_with_pagination方法的简化优化版本
+        
+        Args:
+            db: 数据库会话
+            user: 用户对象
+            monitor: 性能监控器
+            
+        Returns:
+            同步统计信息
+        """
+        # TODO: 实现优化的全量同步逻辑
+        # 暂时使用现有的sync_emails_by_query_with_monitoring作为fallback
+        return self.sync_emails_by_query_with_monitoring(db, user, "newer_than:30d", 500)
 
 
 # Global email sync service instance

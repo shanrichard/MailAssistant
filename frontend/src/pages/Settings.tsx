@@ -10,7 +10,6 @@ import { schedulerService } from '../services/schedulerService';
 import { AppError } from '../types';
 import { showToast } from '../utils/toast';
 import { useSyncTrigger } from '../hooks/useSyncTrigger';
-import { useSyncStore } from '../stores/syncStore';
 import { ArrowPathIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
 const Settings: React.FC = () => {
@@ -21,9 +20,8 @@ const Settings: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 同步相关状态
-  const { triggerSync, syncStatus, syncStats, progress, isSyncing, hasError } = useSyncTrigger();
-  const { lastSyncTime, errorMessage } = useSyncStore();
+  // 新的简单同步状态
+  const { isSyncing, lastSyncResult, error: syncError, syncToday, syncWeek, syncMonth, clearError, clearResult } = useSyncTrigger();
 
   // 获取当前时区
   const getCurrentTimezone = () => {
@@ -41,11 +39,11 @@ const Settings: React.FC = () => {
         const localTimezone = getCurrentTimezone();
         setTimezone(localTimezone);
         
-        // 获取用户的调度设置
-        const schedule = await schedulerService.getSchedule();
-        if (schedule && schedule.daily_report_time) {
-          setReportTime(schedule.daily_report_time);
-        }
+        // 调度器功能暂时禁用
+        // const schedule = await schedulerService.getSchedule();
+        // if (schedule && schedule.daily_report_time) {
+        //   setReportTime(schedule.daily_report_time);
+        // }
       } catch (err) {
         const error = err as AppError;
         console.error('Failed to load settings:', error);
@@ -64,10 +62,11 @@ const Settings: React.FC = () => {
     setError(null);
     
     try {
-      await schedulerService.updateSchedule({
-        time: reportTime,
-        timezone: timezone
-      });
+      // 调度器功能暂时禁用
+      // await schedulerService.updateSchedule({
+      //   time: reportTime,
+      //   timezone: timezone
+      // });
       
       // 成功反馈
       showToast('设置保存成功', 'success');
@@ -107,25 +106,36 @@ const Settings: React.FC = () => {
     setError(null); // 清除错误提示
   };
 
-  // 手动同步邮件
-  const handleManualSync = async () => {
+  // 同步今天邮件
+  const handleSyncToday = async () => {
     try {
-      await triggerSync(true); // 智能同步，使用后台模式避免超时
-      showToast('邮件同步已开始', 'success');
+      const result = await syncToday();
+      showToast(result.message, 'success');
     } catch (error) {
-      console.error('Manual sync failed:', error);
-      showToast('同步启动失败，请重试', 'error');
+      console.error('Today sync failed:', error);
+      showToast('同步今天邮件失败，请重试', 'error');
     }
   };
 
-  // 强制全量同步
-  const handleFullSync = async () => {
+  // 同步本周邮件
+  const handleSyncWeek = async () => {
     try {
-      await triggerSync(true); // 强制全量同步
-      showToast('全量同步已开始', 'success');
+      const result = await syncWeek();
+      showToast(result.message, 'success');
     } catch (error) {
-      console.error('Full sync failed:', error);
-      showToast('全量同步启动失败，请重试', 'error');
+      console.error('Week sync failed:', error);
+      showToast('同步本周邮件失败，请重试', 'error');
+    }
+  };
+
+  // 同步本月邮件
+  const handleSyncMonth = async () => {
+    try {
+      const result = await syncMonth();
+      showToast(result.message, 'success');
+    } catch (error) {
+      console.error('Month sync failed:', error);
+      showToast('同步本月邮件失败，请重试', 'error');
     }
   };
 
@@ -136,7 +146,7 @@ const Settings: React.FC = () => {
         return (
           <div className="flex items-center space-x-1 text-blue-600">
             <ArrowPathIcon className="h-4 w-4 animate-spin" />
-            <span className="text-sm">同步中 ({progress}%)</span>
+            <span className="text-sm">同步中</span>
           </div>
         );
       case 'completed':
@@ -183,65 +193,109 @@ const Settings: React.FC = () => {
             {/* 同步状态显示 */}
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">同步状态</span>
-              <SyncStatusBadge status={syncStatus} />
+              <span className="text-sm text-gray-600">等待新同步实现</span>
             </div>
             
             {/* 最后同步时间 */}
-            {lastSyncTime && (
+            {false && ( // 暂时隐藏
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">最后同步</span>
                 <span className="text-sm text-gray-600">
-                  {format(lastSyncTime, 'yyyy年MM月dd日 HH:mm:ss', { locale: zhCN })}
+                  {/* {format(lastSyncTime, 'yyyy年MM月dd日 HH:mm:ss', { locale: zhCN })} */}
                 </span>
               </div>
             )}
             
             {/* 同步统计 */}
-            {syncStats && (
+            {false && ( // 暂时隐藏
               <div className="bg-gray-50 p-3 rounded-md">
                 <div className="text-sm text-gray-600">
-                  新邮件: {syncStats.new}，更新: {syncStats.updated}，错误: {syncStats.errors}
+                  {/* 新邮件: {syncStats.new}，更新: {syncStats.updated}，错误: {syncStats.errors} */}
                 </div>
               </div>
             )}
             
             {/* 错误信息 */}
-            {hasError && errorMessage && (
+            {false && ( // 暂时隐藏
               <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                <p className="text-sm text-red-600">{errorMessage}</p>
+                <p className="text-sm text-red-600">{/* {errorMessage} */}</p>
               </div>
             )}
             
-            {/* 操作按钮 */}
-            <div className="flex space-x-3">
+            {/* 新的三个同步按钮 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
-                onClick={handleManualSync}
+                onClick={handleSyncToday}
                 disabled={isSyncing}
-                className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+                className={`px-4 py-3 rounded-md text-white font-medium transition-colors ${
                   isSyncing
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {isSyncing ? '同步中...' : '立即同步'}
+                {isSyncing ? '同步中...' : '同步今天'}
               </button>
               
               <button
-                onClick={handleFullSync}
+                onClick={handleSyncWeek}
                 disabled={isSyncing}
-                className={`px-4 py-2 rounded-md border border-gray-300 text-gray-700 font-medium transition-colors ${
+                className={`px-4 py-3 rounded-md font-medium transition-colors ${
                   isSyncing
-                    ? 'bg-gray-100 cursor-not-allowed'
-                    : 'bg-white hover:bg-gray-50'
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
               >
-                完整重新同步
+                {isSyncing ? '同步中...' : '同步本周'}
+              </button>
+              
+              <button
+                onClick={handleSyncMonth}
+                disabled={isSyncing}
+                className={`px-4 py-3 rounded-md font-medium transition-colors ${
+                  isSyncing
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-orange-600 text-white hover:bg-orange-700'
+                }`}
+              >
+                {isSyncing ? '同步中...' : '同步本月'}
               </button>
             </div>
             
+            {/* 同步结果显示 */}
+            {lastSyncResult && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-700">{lastSyncResult.message}</p>
+                {lastSyncResult.stats && (
+                  <p className="text-xs text-green-600 mt-1">
+                    新邮件: {lastSyncResult.stats.new}，更新: {lastSyncResult.stats.updated}
+                    {lastSyncResult.stats.errors > 0 && `, 错误: ${lastSyncResult.stats.errors}`}
+                  </p>
+                )}
+                <button
+                  onClick={clearResult}
+                  className="text-xs text-green-600 hover:text-green-800 mt-1 underline"
+                >
+                  清除
+                </button>
+              </div>
+            )}
+            
+            {/* 错误信息显示 */}
+            {syncError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-700">{syncError}</p>
+                <button
+                  onClick={clearError}
+                  className="text-xs text-red-600 hover:text-red-800 mt-1 underline"
+                >
+                  清除
+                </button>
+              </div>
+            )}
+            
             {/* 说明文字 */}
             <p className="text-xs text-gray-500">
-              "立即同步"会智能判断进行增量或全量同步；"完整重新同步"会重新同步最近30天的所有邮件。
+              点击按钮同步相应时间范围的邮件。同步可能需要10-30秒时间，请耐心等待。
             </p>
           </div>
         </div>

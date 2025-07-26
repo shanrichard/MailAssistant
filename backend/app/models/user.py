@@ -31,6 +31,12 @@ class User(Base):
     daily_report_time = Column(Time, default=time(8, 0))  # 8:00 AM
     timezone = Column(String(50), default="UTC")
     
+    # Gmail History API support for incremental sync (Task 3-14)
+    last_history_id = Column(String(255), nullable=True, 
+                           comment='Gmail History API的最后historyId，用于增量同步')
+    last_history_sync = Column(DateTime(timezone=True), nullable=True,
+                             comment='最后一次使用History API同步的时间')
+    
     # Status
     is_active = Column(Boolean, default=True)
     
@@ -40,8 +46,6 @@ class User(Base):
     
     # Relationships
     emails = relationship("Email", back_populates="user", cascade="all, delete-orphan")
-    email_analyses = relationship("EmailAnalysis", back_populates="user", cascade="all, delete-orphan")
-    preferences = relationship("UserPreference", back_populates="user", cascade="all, delete-orphan")
     daily_reports = relationship("DailyReport", back_populates="user", cascade="all, delete-orphan")
     task_logs = relationship("TaskLog", back_populates="user", cascade="all, delete-orphan")
     

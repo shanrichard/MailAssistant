@@ -31,9 +31,9 @@ if __name__ == "__main__":
     print("")
     
     # Use string import for reload to work
-    # 使用 socket_app 而不是 app，以支持 Socket.IO
+    # 直接使用 app（Socket.IO 已移除）
     uvicorn.run(
-        "app.main:socket_app",
+        "app.main:app",
         host=settings.host,
         port=settings.port,
         reload=True,

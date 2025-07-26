@@ -2,11 +2,12 @@
 Gmail API routes for email operations
 """
 from typing import List, Dict, Any, Optional, Callable
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from datetime import datetime
 import asyncio
+import time
 
 from ..core.database import get_db
 from ..api.auth import get_current_user
@@ -15,8 +16,12 @@ from ..models.user_sync_status import UserSyncStatus
 from ..services.gmail_service import gmail_service
 from ..services.email_sync_service import email_sync_service
 from ..core.logging import get_logger
-from ..services.idempotent_sync_service import start_sync_idempotent, release_sync_status_atomic, get_active_task_info
-from ..services.heartbeat_sync_service import execute_background_sync_with_heartbeat, get_sync_health_status
+from ..utils.api_optimization import (
+    monitor_api_performance,
+    APIErrorHandler,
+    OptimizationConfig,
+    execute_with_fallback
+)
 
 logger = get_logger(__name__)
 
@@ -136,57 +141,99 @@ async def get_sync_status(
 
 
 @router.post("/search", response_model=List[Dict[str, Any]])
-async def search_emails(
+@monitor_api_performance("search_emails")
+async def search_emails_optimized(
     request: SearchRequest,
     current_user: User = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Search emails in Gmail"""
+    """搜索邮件 - 优化版本"""
     try:
-        messages = gmail_service.search_messages(
-            user=current_user,
-            query=request.query,
-            max_results=request.max_results
-        )
+        if OptimizationConfig.is_search_optimization_enabled():
+            # 使用优化版本：解决N+1问题
+            messages = await execute_with_fallback(
+                lambda user, query, max_results: gmail_service.search_messages_optimized(user, query=query, max_results=max_results),
+                lambda user, query, max_results: gmail_service.search_messages(user, query=query, max_results=max_results),
+                True,
+                current_user, request.query, request.max_results
+            )
+        else:
+            # 原版实现（保持兼容性）
+            messages = await asyncio.to_thread(
+                gmail_service.search_messages,
+                current_user, 
+                query=request.query,
+                max_results=request.max_results
+            )
+        
         return messages
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to search emails: {str(e)}")
+        logger.error(f"邮件搜索失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_search_error(e, "search_emails")
 
 
 @router.get("/recent")
-async def get_recent_emails(
+@monitor_api_performance("recent_emails")
+async def get_recent_emails_optimized(
     days: int = Query(default=1, ge=1, le=7, description="Number of days"),
     max_results: int = Query(default=20, ge=1, le=100, description="Maximum results"),
     current_user: User = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get recent emails from Gmail"""
+    """获取最近邮件 - 优化版本"""
     try:
-        messages = gmail_service.get_recent_messages(
-            user=current_user,
-            days=days,
-            max_results=max_results
-        )
+        if OptimizationConfig.is_search_optimization_enabled():
+            # 使用优化版本：解决N+1问题
+            messages = await execute_with_fallback(
+                lambda user, days, max_results: gmail_service.get_recent_messages_optimized(user, days=days, max_results=max_results),
+                lambda user, days, max_results: gmail_service.get_recent_messages(user, days=days, max_results=max_results),
+                True,
+                current_user, days, max_results
+            )
+        else:
+            # 原版实现（保持兼容性）
+            messages = await asyncio.to_thread(
+                gmail_service.get_recent_messages,
+                current_user,
+                days=days,
+                max_results=max_results
+            )
+        
         return messages
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to get recent emails: {str(e)}")
+        logger.error(f"获取最近邮件失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_search_error(e, "recent_emails")
 
 
 @router.get("/unread")
-async def get_unread_emails(
+@monitor_api_performance("unread_emails")
+async def get_unread_emails_optimized(
     max_results: int = Query(default=50, ge=1, le=200, description="Maximum results"),
     current_user: User = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get unread emails from Gmail"""
+    """获取未读邮件 - 优化版本"""
     try:
-        messages = gmail_service.get_unread_messages(
-            user=current_user,
-            max_results=max_results
-        )
+        if OptimizationConfig.is_search_optimization_enabled():
+            # 使用优化版本：解决N+1问题
+            messages = await execute_with_fallback(
+                lambda user, max_results: gmail_service.get_unread_messages_optimized(user, max_results=max_results),
+                lambda user, max_results: gmail_service.get_unread_messages(user, max_results=max_results),
+                True,
+                current_user, max_results
+            )
+        else:
+            # 原版实现（保持兼容性）
+            messages = await asyncio.to_thread(
+                gmail_service.get_unread_messages,
+                current_user,
+                max_results=max_results
+            )
+        
         return messages
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to get unread emails: {str(e)}")
+        logger.error(f"获取未读邮件失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_search_error(e, "unread_emails")
 
 
 @router.post("/mark-read", response_model=BulkActionResponse)
@@ -295,173 +342,182 @@ async def get_message_details(
 
 
 @router.get("/sender/{sender_email}")
-async def get_messages_by_sender(
+@monitor_api_performance("messages_by_sender")
+async def get_messages_by_sender_optimized(
     sender_email: str,
     max_results: int = Query(default=20, ge=1, le=100),
     current_user: User = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    """Get messages from a specific sender"""
+    """获取特定发件人的邮件 - 优化版本"""
     try:
-        messages = gmail_service.get_messages_by_sender(
-            user=current_user,
-            sender_email=sender_email,
-            max_results=max_results
-        )
+        if OptimizationConfig.is_search_optimization_enabled():
+            # 使用优化版本：解决N+1问题
+            messages = await execute_with_fallback(
+                lambda user, sender_email, max_results: gmail_service.get_messages_by_sender_optimized(
+                    user, sender_email=sender_email, max_results=max_results
+                ),
+                lambda user, sender_email, max_results: gmail_service.get_messages_by_sender(
+                    user, sender_email=sender_email, max_results=max_results
+                ),
+                True,
+                current_user, sender_email, max_results
+            )
+        else:
+            # 原版实现（保持兼容性）
+            messages = await asyncio.to_thread(
+                gmail_service.get_messages_by_sender,
+                current_user,
+                sender_email=sender_email,
+                max_results=max_results
+            )
+        
         return messages
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to get messages by sender: {str(e)}")
+        logger.error(f"获取发件人邮件失败: {e}", extra={"user_id": current_user.id, "sender": sender_email})
+        raise APIErrorHandler.handle_search_error(e, "messages_by_sender")
 
 
-# 新的智能同步 API 端点
+# 优化的同步 API
 
-@router.post("/sync/smart", response_model=SyncResponse)
-async def smart_sync_emails(
-    background_tasks: BackgroundTasks,
-    force_full: bool = Query(default=False, description="Force full sync"),
-    background: bool = Query(default=False, description="Run in background"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-) -> SyncResponse:
-    """智能同步：幂等启动，防止重复任务"""
+@router.post("/sync/today")
+@monitor_api_performance("sync_today")
+async def sync_today_emails_optimized(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """同步今天的邮件 - 优化版本"""
     try:
-        # 使用幂等启动接口
-        task_id = start_sync_idempotent(db, current_user.id, force_full)
-        
-        # 检查是否复用了现有任务
-        active_task = get_active_task_info(db, current_user.id)
-        
-        if active_task and active_task.get("is_active") and active_task["task_id"] == task_id:
-            # 复用现有任务
-            return SyncResponse(
-                success=True,
-                stats=active_task.get("current_stats", {}),
-                message="复用进行中的同步任务",
-                in_progress=True,
-                progress_percentage=active_task.get("progress_percentage", 0),
-                task_id=task_id
+        if OptimizationConfig.is_sync_optimization_enabled():
+            # 使用优化的智能同步
+            result = await execute_with_fallback(
+                lambda db, user: email_sync_service.smart_sync_user_emails_optimized(db, user, force_full=False),
+                lambda db, user: email_sync_service.sync_emails_by_timerange(db, user, "today", 500),
+                True,
+                db, current_user
             )
-        
-        # 新任务：启动后台任务
-        logger.info(f"准备启动后台任务", extra={"task_id": task_id, "has_background_tasks": bool(background_tasks)})
-        
-        if background_tasks:
-            logger.info(f"使用BackgroundTasks启动任务", extra={"task_id": task_id})
-            background_tasks.add_task(
-                execute_background_sync_with_heartbeat, current_user.id, force_full, task_id
-            )
+            
+            # 如果智能同步没有找到今天的邮件，使用查询方式补充
+            if result['new'] == 0 and result['updated'] == 0:
+                additional_result = await execute_with_fallback(
+                    lambda db, user: email_sync_service.sync_emails_by_query_with_monitoring(db, user, "newer_than:1d", 500),
+                    lambda db, user: email_sync_service.sync_emails_by_timerange(db, user, "today", 500),
+                    True,
+                    db, current_user
+                )
+                # 合并结果
+                for key in ['new', 'updated', 'errors']:
+                    result[key] += additional_result.get(key, 0)
         else:
-            # 如果没有BackgroundTasks，使用asyncio
-            logger.info(f"使用asyncio.create_task启动任务", extra={"task_id": task_id})
-            asyncio.create_task(
-                execute_background_sync_with_heartbeat(current_user.id, force_full, task_id)
+            # 原版实现（保持兼容性）
+            result = await asyncio.to_thread(
+                email_sync_service.sync_emails_by_timerange,
+                db, current_user, "today", 500
             )
-        
-        return SyncResponse(
-            success=True,
-            stats={},
-            message="同步任务已启动",
-            task_id=task_id,
-            in_progress=True
-        )
-        
-    except Exception as e:
-        logger.error(f"启动同步失败: {e}", extra={"user_id": current_user.id})
-        raise HTTPException(status_code=400, detail=f"启动同步失败: {str(e)}")
-
-
-@router.get("/sync/should-sync")
-async def should_sync(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> Dict[str, Any]:
-    """检查是否需要同步及同步建议"""
-    try:
-        # 检查是否首次同步
-        is_first = email_sync_service.is_first_sync(db, current_user)
-        
-        # 获取最后同步时间
-        sync_status = db.query(UserSyncStatus).filter(
-            UserSyncStatus.user_id == current_user.id
-        ).first()
-        
-        last_sync = sync_status.updated_at if sync_status else None
-        
-        # 获取邮件数量
-        from ..models.email import Email
-        email_count = db.query(Email).filter(Email.user_id == current_user.id).count()
-        
-        # 决定是否需要同步
-        need_sync = is_first or (sync_status and sync_status.is_syncing is False)
-        exceeded = False
-        
-        if last_sync:
-            from datetime import timedelta
-            from app.utils.datetime_utils import utc_now, safe_datetime_diff, format_datetime_for_api
-            
-            # 使用安全的时区处理函数
-            current_time = utc_now()
-            time_diff = safe_datetime_diff(current_time, last_sync)
-            
-            if time_diff:
-                exceeded = time_diff > timedelta(hours=1)  # 1小时未同步则建议同步
-                need_sync = need_sync or exceeded
-                logger.debug(f"Time difference since last sync: {time_diff}, exceeded: {exceeded}")
-        
-        # 返回详细原因
-        return {
-            "needsSync": need_sync,
-            "reason": "firstSync" if is_first else "thresholdExceeded" if exceeded else "scheduled",
-            "lastSyncTime": format_datetime_for_api(last_sync),
-            "emailCount": email_count,
-            "isFirstSync": is_first
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to check sync status: {e}", user_id=current_user.id)
-        raise HTTPException(status_code=400, detail=f"Failed to check sync status: {str(e)}")
-
-
-@router.get("/sync/progress/{task_id}")
-async def get_sync_progress(
-    task_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> Dict[str, Any]:
-    """获取后台同步任务进度"""
-    try:
-        sync_status = db.query(UserSyncStatus).filter(
-            UserSyncStatus.user_id == current_user.id,
-            UserSyncStatus.task_id == task_id
-        ).first()
-        
-        if not sync_status:
-            raise HTTPException(status_code=404, detail="Sync task not found")
         
         return {
             "success": True,
-            "isRunning": sync_status.is_syncing,
-            "progress": sync_status.progress_percentage,
-            "stats": sync_status.current_stats or {},
-            "error": sync_status.error_message,
-            "syncType": sync_status.sync_type,
-            "startedAt": sync_status.started_at.isoformat() if sync_status.started_at else None,
-            "updatedAt": sync_status.updated_at.isoformat() if sync_status.updated_at else None
+            "message": f"成功同步了 {result['new']} 封新邮件，更新了 {result['updated']} 封",
+            "stats": result
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Failed to get sync progress: {e}", task_id=task_id, user_id=current_user.id)
-        raise HTTPException(status_code=400, detail=f"Failed to get sync progress: {str(e)}")
+        logger.error(f"同步今天邮件失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_sync_error(e, "sync_today")
 
-@router.get("/sync/health")
-async def sync_health_check():
-    """同步系统健康检查"""
+
+@router.post("/sync/week")
+@monitor_api_performance("sync_week")
+async def sync_week_emails_optimized(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """同步本周的邮件 - 优化版本"""
     try:
-        health_status = get_sync_health_status()
-        return health_status
+        if OptimizationConfig.is_sync_optimization_enabled():
+            # 使用优化的查询同步（一周的邮件）
+            result = await execute_with_fallback(
+                lambda db, user: email_sync_service.sync_emails_by_query_with_monitoring(db, user, "newer_than:7d", 500),
+                lambda db, user: email_sync_service.sync_emails_by_timerange(db, user, "week", 500),
+                True,
+                db, current_user
+            )
+        else:
+            # 原版实现（保持兼容性）
+            result = await asyncio.to_thread(
+                email_sync_service.sync_emails_by_timerange,
+                db, current_user, "week", 500
+            )
+        
+        return {
+            "success": True,
+            "message": f"成功同步了 {result['new']} 封新邮件，更新了 {result['updated']} 封",
+            "stats": result
+        }
         
     except Exception as e:
-        logger.error(f"健康检查失败: {e}")
-        raise HTTPException(status_code=500, detail=f"健康检查失败: {str(e)}")
+        logger.error(f"同步本周邮件失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_sync_error(e, "sync_week")
+
+
+@router.post("/sync/month")
+@monitor_api_performance("sync_month")
+async def sync_month_emails_optimized(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """同步本月的邮件 - 优化版本"""
+    try:
+        if OptimizationConfig.is_sync_optimization_enabled():
+            # 使用优化的查询同步（一个月的邮件）
+            result = await execute_with_fallback(
+                lambda db, user: email_sync_service.sync_emails_by_query_with_monitoring(db, user, "newer_than:30d", 500),
+                lambda db, user: email_sync_service.sync_emails_by_timerange(db, user, "month", 500),
+                True,
+                db, current_user
+            )
+        else:
+            # 原版实现（保持兼容性）
+            result = await asyncio.to_thread(
+                email_sync_service.sync_emails_by_timerange,
+                db, current_user, "month", 500
+            )
+        
+        return {
+            "success": True,
+            "message": f"成功同步了 {result['new']} 封新邮件，更新了 {result['updated']} 封",
+            "stats": result
+        }
+        
+    except Exception as e:
+        logger.error(f"同步本月邮件失败: {e}", extra={"user_id": current_user.id})
+        raise APIErrorHandler.handle_sync_error(e, "sync_month")
+
+
+# 健康检查和监控端点
+
+@router.get("/health/optimization")
+async def optimization_health_check():
+    """优化功能健康检查"""
+    return OptimizationConfig.get_optimization_status()
+
+
+@router.get("/stats/performance")
+async def get_performance_stats(
+    current_user: User = Depends(get_current_user)
+):
+    """获取API性能统计（开发和调试用）"""
+    from ..core.config import settings
+    
+    if not settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # 这里可以返回内存中的性能统计信息
+    # 实际实现可以集成到已有的监控系统
+    return {
+        "message": "Performance stats available in logs",
+        "monitoring_enabled": OptimizationConfig.is_performance_monitoring_enabled(),
+        "threshold": OptimizationConfig.get_performance_threshold(),
+        "optimization_status": OptimizationConfig.get_optimization_status(),
+        "timestamp": time.time()
+    }

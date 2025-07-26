@@ -4,10 +4,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import useChatStore from '../stores/chatStore';
 import { ChatMessage, ToolCall, AgentThought } from '../types';
 import { useSyncTrigger } from '../hooks/useSyncTrigger';
-import { useSyncStore } from '../stores/syncStore';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const Chat: React.FC = () => {
@@ -20,8 +20,7 @@ const Chat: React.FC = () => {
     retryStatus 
   } = useChatStore();
   
-  const { checkAndSync, isSyncing } = useSyncTrigger();
-  const { progress } = useSyncStore();
+  const { isSyncing } = useSyncTrigger();
   const [input, setInput] = useState('');
   const [hasTriggeredSync, setHasTriggeredSync] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -41,7 +40,7 @@ const Chat: React.FC = () => {
       if (!hasTriggeredSync) {
         setHasTriggeredSync(true);
         try {
-          await checkAndSync('page-visit');
+          // await checkAndSync('page-visit'); // 暂时注释，等待新同步实现
         } catch (error) {
           console.warn('Auto sync failed:', error);
         }
@@ -49,7 +48,7 @@ const Chat: React.FC = () => {
     };
 
     triggerSyncOnPageLoad();
-  }, [checkAndSync, hasTriggeredSync]);
+  }, [hasTriggeredSync]);
   
   // WebSocket连接已在MainLayout中处理，这里不需要重复连接
   // useEffect(() => {
@@ -77,7 +76,7 @@ const Chat: React.FC = () => {
         <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
           <div className="flex items-center space-x-2 text-sm text-blue-700">
             <ArrowPathIcon className="h-4 w-4 animate-spin" />
-            <span>正在同步邮件数据... {progress}%</span>
+            <span>正在同步邮件数据...</span>
           </div>
         </div>
       )}
@@ -91,13 +90,13 @@ const Chat: React.FC = () => {
       
       <div className="border-t p-4">
         {/* 重试状态提示 */}
-        {retryStatus && (
+        {retryStatus?.isRetrying && (
           <div className="mb-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg flex items-center">
             <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span>{retryStatus.message}</span>
+            <span>正在重试连接...</span>
           </div>
         )}
         
@@ -136,6 +135,8 @@ const MessageItem: React.FC<{ message: ChatMessage }> = ({ message }) => {
       return <AgentThoughtCard thought={message.thought!} />;
     case 'error':
       return <ErrorMessage message={message} onRetry={message.onRetry} />;
+    case 'system':
+      return <SystemMessage message={message} />;
     default:
       return null;
   }
@@ -153,14 +154,68 @@ const UserMessage: React.FC<{ message: ChatMessage }> = ({ message }) => (
   </div>
 );
 
-// Agent消息组件
+// Agent消息组件 - 支持Markdown渲染
 const AgentMessage: React.FC<{ message: ChatMessage }> = ({ message }) => (
   <div className="flex justify-start">
     <div className="max-w-[70%] bg-gray-100 rounded-lg px-4 py-2">
-      <p className="text-gray-800">{message.content}</p>
-      <time className="text-xs text-gray-500">
+      <div className="prose prose-sm max-w-none text-gray-800">
+        <ReactMarkdown
+          components={{
+            // 自定义组件样式，确保在聊天界面中显示合适
+            h1: ({children}: any) => <h1 className="text-lg font-bold mt-2 mb-1">{children}</h1>,
+            h2: ({children}: any) => <h2 className="text-base font-semibold mt-2 mb-1">{children}</h2>,
+            h3: ({children}: any) => <h3 className="text-sm font-semibold mt-1 mb-1">{children}</h3>,
+            p: ({children}: any) => <p className="my-1">{children}</p>,
+            ul: ({children}: any) => <ul className="my-1 ml-4 list-disc">{children}</ul>,
+            ol: ({children}: any) => <ol className="my-1 ml-4 list-decimal">{children}</ol>,
+            li: ({children}: any) => <li className="my-0.5">{children}</li>,
+            blockquote: ({children}: any) => (
+              <blockquote className="border-l-4 border-blue-500 pl-3 my-2 italic text-gray-700">
+                {children}
+              </blockquote>
+            ),
+            code: ({children, className}: any) => {
+              const isInline = !className || !className.includes('language-');
+              return isInline 
+                ? <code className="bg-gray-200 px-1 py-0.5 rounded text-sm">{children}</code>
+                : <code className="block bg-gray-200 p-2 rounded my-1 text-sm overflow-x-auto">{children}</code>;
+            },
+            pre: ({children}: any) => <pre className="overflow-x-auto">{children}</pre>,
+            hr: () => <hr className="my-2 border-gray-300" />,
+            strong: ({children}: any) => <strong className="font-semibold text-gray-900">{children}</strong>,
+            em: ({children}: any) => <em className="italic">{children}</em>,
+            a: ({href, children}: any) => (
+              <a href={href} className="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            ),
+            table: ({children}: any) => (
+              <table className="min-w-full divide-y divide-gray-300 my-2">
+                {children}
+              </table>
+            ),
+            thead: ({children}: any) => <thead className="bg-gray-50">{children}</thead>,
+            tbody: ({children}: any) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+            tr: ({children}: any) => <tr>{children}</tr>,
+            th: ({children}: any) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>,
+            td: ({children}: any) => <td className="px-3 py-2 text-sm text-gray-900">{children}</td>,
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </div>
+      <time className="text-xs text-gray-500 mt-1 block">
         {new Date(message.timestamp).toLocaleTimeString()}
       </time>
+    </div>
+  </div>
+);
+
+// 系统消息组件
+const SystemMessage: React.FC<{ message: ChatMessage }> = ({ message }) => (
+  <div className="flex justify-center">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+      <p>{message.content}</p>
     </div>
   </div>
 );

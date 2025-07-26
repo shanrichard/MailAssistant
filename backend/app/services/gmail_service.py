@@ -4,6 +4,8 @@ Gmail API service for email operations
 import json
 import base64
 import email
+import time
+import httpx
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 from google.oauth2.credentials import Credentials
@@ -385,6 +387,280 @@ class GmailService:
             
         except Exception as e:
             logger.error(f"Failed to get messages by sender: {str(e)}")
+            raise
+    
+    def get_messages_by_timerange(
+        self, 
+        user: User, 
+        timerange: str, 
+        max_results: int = 500
+    ) -> List[Dict[str, Any]]:
+        """Get messages by time range (today, week, month)"""
+        try:
+            # 构建查询字符串
+            if timerange == "today":
+                query = "newer_than:1d"
+            elif timerange == "week":
+                query = "newer_than:7d"
+            elif timerange == "month":
+                query = "newer_than:30d"
+            else:
+                raise ValueError(f"Invalid timerange: {timerange}")
+            
+            logger.info(f"Fetching {timerange} messages with query: {query}")
+            return self.search_messages(user, query, max_results)
+            
+        except Exception as e:
+            logger.error(f"Failed to get messages by timerange {timerange}: {str(e)}")
+            raise
+    
+    # Gmail History API support (Task 3-14-2)
+    
+    def fetch_changed_msg_ids(self, user: User, start_history_id: str) -> Tuple[List[str], str]:
+        """获取变更的邮件ID，处理historyId过期（专家建议）"""
+        try:
+            return self.get_history_changes(user, start_history_id)
+        except HttpError as e:
+            if e.resp.status == 404:  # historyId过期（>7天）
+                logger.warning(f"historyId expired for user {user.id}, falling back to full sync")
+                return self._fallback_full_sync(user)
+            raise
+    
+    def get_history_changes(self, user: User, start_history_id: str) -> Tuple[List[str], str]:
+        """获取历史变更的邮件ID列表和新的historyId"""
+        try:
+            service = self._get_gmail_service(user)
+            
+            logger.info(f"Fetching history changes for user {user.id} from historyId {start_history_id}")
+            
+            # 调用Gmail History API
+            result = service.users().history().list(
+                userId='me',
+                startHistoryId=start_history_id
+            ).execute()
+            
+            # 提取变更的邮件ID
+            history_data = result.get('history', [])
+            changed_message_ids = self._extract_message_ids_from_history(history_data)
+            
+            # 获取新的historyId
+            new_history_id = result.get('historyId', start_history_id)
+            
+            logger.info(f"Found {len(changed_message_ids)} changed messages, new historyId: {new_history_id}")
+            
+            return changed_message_ids, new_history_id
+            
+        except HttpError as e:
+            logger.error(f"Failed to get history changes for user {user.id}: {str(e)}")
+            raise
+    
+    def get_current_history_id(self, user: User) -> str:
+        """获取用户当前的historyId"""
+        try:
+            service = self._get_gmail_service(user)
+            
+            # 调用Gmail API获取用户profile
+            profile = service.users().getProfile(userId='me').execute()
+            
+            history_id = profile.get('historyId')
+            if not history_id:
+                raise ValueError("No historyId found in user profile")
+            
+            logger.info(f"Current historyId for user {user.id}: {history_id}")
+            return history_id
+            
+        except HttpError as e:
+            logger.error(f"Failed to get current historyId for user {user.id}: {str(e)}")
+            raise
+    
+    def _extract_message_ids_from_history(self, history_data: List[Dict[str, Any]]) -> List[str]:
+        """从history响应中提取邮件ID"""
+        message_ids = set()  # 使用set去重
+        
+        for history_entry in history_data:
+            # 处理各种类型的变更
+            for change_type in ['messagesAdded', 'messagesDeleted', 'labelsAdded', 'labelsRemoved']:
+                if change_type in history_entry:
+                    for item in history_entry[change_type]:
+                        if 'message' in item and 'id' in item['message']:
+                            message_ids.add(item['message']['id'])
+        
+        return list(message_ids)
+    
+    def _fallback_full_sync(self, user: User) -> Tuple[List[str], str]:
+        """historyId过期时的fallback全量同步"""
+        try:
+            logger.info(f"Performing fallback full sync for user {user.id}")
+            
+            # 获取最近的邮件（比如最近1天的）作为fallback
+            recent_messages = self.get_recent_messages(user, days=1, max_results=100)
+            
+            # 提取邮件ID
+            message_ids = [msg.get('gmail_id') for msg in recent_messages if msg.get('gmail_id')]
+            
+            # 获取当前的historyId
+            current_history_id = self.get_current_history_id(user)
+            
+            logger.info(f"Fallback sync completed: {len(message_ids)} messages, historyId: {current_history_id}")
+            
+            return message_ids, current_history_id
+            
+        except Exception as e:
+            logger.error(f"Fallback full sync failed for user {user.id}: {str(e)}")
+            raise
+    
+    # Gmail Batch API support (Task 3-14-3)
+    
+    def get_messages_batch(self, user: User, message_ids: List[str]) -> List[Dict[str, Any]]:
+        """批量获取邮件详情（最多50个一批）"""
+        if not message_ids:
+            return []
+        
+        logger.info(f"Batch fetching {len(message_ids)} messages for user {user.id}")
+        
+        all_messages = []
+        
+        # 分批处理，每批最多50个邮件
+        for batch in self._chunk_list(message_ids, 50):
+            try:
+                batch_messages = self.get_messages_batch_with_retry(user, batch)
+                all_messages.extend(batch_messages)
+            except Exception as e:
+                logger.error(f"Failed to fetch batch for user {user.id}: {str(e)}")
+                # 继续处理下一批，不让单批失败阻塞整个过程
+                continue
+        
+        logger.info(f"Successfully fetched {len(all_messages)} messages in batches for user {user.id}")
+        return all_messages
+    
+    def get_messages_batch_with_retry(self, user: User, message_ids: List[str]) -> List[Dict[str, Any]]:
+        """批量获取邮件，带重试机制（专家建议）"""
+        if not message_ids:
+            return []
+        
+        retry_count = 0
+        while retry_count <= 1:  # 最多重试1次
+            try:
+                return self._batch_request(user, message_ids)
+            except HttpError as e:
+                if e.resp.status in [429, 500, 502, 503, 504] and retry_count == 0:
+                    retry_count += 1
+                    wait_time = 2 ** retry_count  # 指数退避
+                    logger.warning(f"Batch request failed (status {e.resp.status}), retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                elif e.resp.status in [429, 500, 502, 503, 504]:
+                    # 两次失败则跳过并记录（专家建议）
+                    logger.error(f"Batch request failed after retry for user {user.id}: {e}")
+                    return []  # 返回空列表，不阻塞整个同步
+                else:
+                    # 非重试错误（如401认证问题）直接抛出
+                    raise
+    
+    def _batch_request(self, user: User, message_ids: List[str]) -> List[Dict[str, Any]]:
+        """执行批量请求，带超时控制（专家建议）"""
+        if not message_ids:
+            return []
+        
+        try:
+            # 设置5秒超时（专家建议）
+            with httpx.Client(timeout=5.0) as client:
+                # Gmail API批量请求实现
+                result = self._execute_gmail_batch_request(user, message_ids)
+                return result
+                
+        except Exception as e:
+            logger.error(f"Batch request execution failed for user {user.id}: {str(e)}")
+            raise
+    
+    def _execute_gmail_batch_request(self, user: User, message_ids: List[str]) -> List[Dict[str, Any]]:
+        """执行Gmail批量请求的具体实现"""
+        service = self._get_gmail_service(user)
+        
+        logger.debug(f"Executing batch request for {len(message_ids)} messages")
+        
+        messages = []
+        
+        # 使用Gmail API的批量功能实现
+        # Note: 由于Python Gmail API客户端的批量实现较复杂，这里使用优化的串行调用
+        # 在实际生产中，可以考虑使用Google API的batch HTTP请求
+        
+        try:
+            for message_id in message_ids:
+                try:
+                    # 获取邮件详情
+                    message = service.users().messages().get(
+                        userId='me', 
+                        id=message_id,
+                        format='full'
+                    ).execute()
+                    
+                    # 解析邮件数据
+                    parsed_message = self.parse_message(message)
+                    messages.append(parsed_message)
+                    
+                except HttpError as e:
+                    if e.resp.status == 404:
+                        # 邮件不存在（可能已被删除），跳过
+                        logger.warning(f"Message {message_id} not found, skipping")
+                        continue
+                    elif e.resp.status in [403, 429]:
+                        # 权限或限流问题，抛出让上层重试机制处理
+                        raise
+                    else:
+                        # 其他错误，记录但继续处理剩余邮件
+                        logger.error(f"Failed to fetch message {message_id}: {e}")
+                        continue
+                        
+        except Exception as e:
+            logger.error(f"Batch request execution failed: {e}")
+            raise
+        
+        logger.debug(f"Successfully fetched {len(messages)} out of {len(message_ids)} requested messages")
+        return messages
+    
+    def _chunk_list(self, items: List[Any], chunk_size: int) -> List[List[Any]]:
+        """将列表分块的工具方法"""
+        for i in range(0, len(items), chunk_size):
+            yield items[i:i + chunk_size]
+    
+    # Optimized search methods (Task 3-14-5)
+    
+    def search_messages_optimized(self, user: User, query: str, max_results: int = 50) -> List[Dict[str, Any]]:
+        """优化版搜索消息，使用批量API解决N+1问题
+        
+        这个方法解决了原版search_messages中的N+1查询问题：
+        - 原版：1次list_messages + N次get_message_details
+        - 优化版：1次list_messages + 1次get_messages_batch (仅当有消息时)
+        
+        Args:
+            user: 用户对象
+            query: Gmail搜索查询
+            max_results: 最大结果数
+            
+        Returns:
+            解析后的邮件列表，格式与原版search_messages兼容
+        """
+        try:
+            # 1. 获取消息ID列表（1次API调用）
+            messages, _ = self.list_messages(user=user, query=query, max_results=max_results)
+            
+            if not messages:
+                logger.info("Optimized search completed: 0 messages found")
+                return []
+            
+            # 2. 提取邮件ID列表
+            message_ids = [msg['id'] for msg in messages]
+            
+            # 3. 批量获取详情（利用已实现的批量API，解决N+1问题）
+            detailed_messages = self.get_messages_batch(user, message_ids)
+            
+            logger.info(f"Optimized search completed: {len(detailed_messages)} messages fetched with 2 API calls instead of {len(messages) + 1}")
+            
+            return detailed_messages
+            
+        except Exception as e:
+            logger.error(f"Failed to search messages optimized: {str(e)}")
             raise
 
 

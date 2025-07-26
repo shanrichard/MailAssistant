@@ -169,6 +169,18 @@ class Settings(BaseSettings):
     preference_cache_ttl: int = Field(300, env="PREFERENCE_CACHE_TTL")
     report_cache_ttl: int = Field(900, env="REPORT_CACHE_TTL")
     
+    # Streaming configuration
+    chunk_min_size: int = Field(10, env="CHUNK_MIN_SIZE", description="Minimum chunk size in characters")
+    chunk_max_wait: float = Field(0.5, env="CHUNK_MAX_WAIT", description="Maximum wait time in seconds")
+    chunk_delimiter_pattern: str = Field(r'[。！？；\n]', env="CHUNK_DELIMITER_PATTERN", description="Regex pattern for sentence delimiters")
+    
+    # Gmail API优化配置
+    enable_optimized_sync_endpoints: bool = Field(True, env="ENABLE_OPTIMIZED_SYNC_ENDPOINTS")
+    enable_optimized_search_endpoints: bool = Field(True, env="ENABLE_OPTIMIZED_SEARCH_ENDPOINTS")
+    enable_api_performance_monitoring: bool = Field(True, env="ENABLE_API_PERFORMANCE_MONITORING")
+    api_performance_report_threshold: float = Field(1.0, env="API_PERFORMANCE_REPORT_THRESHOLD")
+    api_monitoring_log_level: str = Field("INFO", env="API_MONITORING_LOG_LEVEL")
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

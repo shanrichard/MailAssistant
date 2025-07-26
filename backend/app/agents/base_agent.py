@@ -15,7 +15,6 @@ from ..core.database import get_db
 from ..core.config import settings
 from ..core.logging import get_logger
 from ..models.user import User
-from ..models.user_preference import UserPreference
 from .llm_provider import llm_provider_manager
 
 logger = get_logger(__name__)
@@ -42,57 +41,29 @@ class BaseAgent(ABC):
     def _load_user_preferences(self) -> Dict[str, Any]:
         """加载用户偏好"""
         try:
-            preferences = self.db.query(UserPreference).filter(
-                UserPreference.user_id == self.user_id,
-                UserPreference.is_active == True
-            ).all()
-            
-            # 组织偏好数据
+            # 直接从User模型获取preferences_text
             prefs_data = {
-                "important_patterns": [],
-                "unimportant_patterns": [],
-                "schedule_preferences": {},
-                "natural_descriptions": []
+                "preferences_text": self.user.preferences_text or "",
+                "schedule_preferences": {
+                    "daily_report_time": self.user.daily_report_time.strftime("%H:%M") if self.user.daily_report_time else "09:00",
+                    "timezone": self.user.timezone or "Asia/Shanghai"
+                }
             }
             
-            for pref in preferences:
-                if pref.preference_type == "important":
-                    prefs_data["important_patterns"].append({
-                        "key": pref.preference_key,
-                        "value": pref.preference_value,
-                        "description": pref.natural_description,
-                        "priority": pref.priority_level
-                    })
-                elif pref.preference_type == "unimportant":
-                    prefs_data["unimportant_patterns"].append({
-                        "key": pref.preference_key,
-                        "value": pref.preference_value,
-                        "description": pref.natural_description
-                    })
-                elif pref.preference_type == "schedule":
-                    prefs_data["schedule_preferences"] = {
-                        "daily_report_time": pref.daily_report_time.strftime("%H:%M") if pref.daily_report_time else "09:00",
-                        "timezone": pref.timezone or "Asia/Shanghai",
-                        "auto_sync_enabled": pref.auto_sync_enabled
-                    }
-                    
-                if pref.natural_description:
-                    prefs_data["natural_descriptions"].append(pref.natural_description)
-                    
             logger.info("User preferences loaded", 
                        user_id=self.user_id, 
-                       important_count=len(prefs_data["important_patterns"]),
-                       unimportant_count=len(prefs_data["unimportant_patterns"]))
+                       has_preferences=bool(self.user.preferences_text))
                        
             return prefs_data
             
         except Exception as e:
             logger.error("Failed to load user preferences", user_id=self.user_id, error=str(e))
             return {
-                "important_patterns": [],
-                "unimportant_patterns": [],
-                "schedule_preferences": {},
-                "natural_descriptions": []
+                "preferences_text": "",
+                "schedule_preferences": {
+                    "daily_report_time": "09:00",
+                    "timezone": "Asia/Shanghai"
+                }
             }
         
     def _create_llm(self):
@@ -144,31 +115,16 @@ class BaseAgent(ABC):
             
         parts = []
         
-        # 重要邮件偏好
-        important_patterns = self.user_preferences.get("important_patterns", [])
-        if important_patterns:
-            parts.append("重要邮件特征：")
-            for pattern in important_patterns:
-                parts.append(f"  - {pattern['description']} (优先级: {pattern['priority']})")
-                
-        # 不重要邮件偏好
-        unimportant_patterns = self.user_preferences.get("unimportant_patterns", [])
-        if unimportant_patterns:
-            parts.append("不重要邮件特征：")
-            for pattern in unimportant_patterns:
-                parts.append(f"  - {pattern['description']}")
-                
-        # 自然语言描述
-        natural_descriptions = self.user_preferences.get("natural_descriptions", [])
-        if natural_descriptions:
-            parts.append("用户偏好描述：")
-            for desc in natural_descriptions:
-                parts.append(f"  - {desc}")
+        # 用户偏好文本
+        preferences_text = self.user_preferences.get("preferences_text", "")
+        if preferences_text:
+            parts.append("用户偏好：")
+            parts.append(preferences_text)
                 
         # 调度偏好
         schedule_prefs = self.user_preferences.get("schedule_preferences", {})
         if schedule_prefs:
-            parts.append("调度偏好：")
+            parts.append("\n调度偏好：")
             if schedule_prefs.get("daily_report_time"):
                 parts.append(f"  - 日报时间: {schedule_prefs['daily_report_time']}")
             if schedule_prefs.get("timezone"):
@@ -218,10 +174,7 @@ class BaseAgent(ABC):
         return {
             "user_id": self.user_id,
             "user_email": self.user.email,
-            "preferences_count": {
-                "important": len(self.user_preferences.get("important_patterns", [])),
-                "unimportant": len(self.user_preferences.get("unimportant_patterns", []))
-            },
+            "has_preferences": bool(self.user_preferences.get("preferences_text")),
             "schedule_preferences": self.user_preferences.get("schedule_preferences", {}),
             "agent_type": self.__class__.__name__,
             "available_tools": self.get_available_tools()

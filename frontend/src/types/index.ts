@@ -4,7 +4,7 @@
  */
 
 // 从 dailyReport 文件导入类型以供本文件使用
-import type { DailyReport, EmailCategory } from './dailyReport';
+import type { DailyReportResponse } from './dailyReport';
 
 // 用户相关类型
 export interface User {
@@ -70,13 +70,7 @@ export interface UserPreference {
 
 // 日报相关类型 - 从独立文件导出
 export type {
-  DailyReport,
-  DailyReportStats,
-  ImportantEmail,
-  CategorizedEmail,
-  EmailCategory,
-  DailyReportResponse,
-  MarkAsReadRequest
+  DailyReportResponse
 } from './dailyReport';
 
 // Agent相关类型
@@ -93,7 +87,7 @@ export interface AgentMessage {
 // Chat相关类型定义
 export interface ChatMessage {
   id: string;
-  type: 'user' | 'agent' | 'tool_call' | 'agent_thought' | 'error';
+  type: 'user' | 'agent' | 'tool_call' | 'agent_thought' | 'error' | 'system';
   content: string;
   timestamp: Date;
   toolCall?: ToolCall;
@@ -110,9 +104,11 @@ export interface ToolCall {
   input?: any; // 兼容旧版本
   output?: any;
   executionTime?: number;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'success' | 'error';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'success' | 'error' | 'timeout' | 'cancelled';
   result?: any;
   error?: string;
+  startTime?: Date;
+  endTime?: Date;
 }
 
 export interface AgentThought {
@@ -197,9 +193,7 @@ export interface ChatInterfaceProps {
 }
 
 export interface DailyReportProps {
-  report: DailyReport;
-  onCategoryClick: (category: string) => void;
-  onEmailClick: (email: EmailMessage) => void;
+  report: DailyReportResponse;
   onRefresh: () => void;
 }
 
@@ -225,14 +219,14 @@ export interface SettingsFormData {
 export interface EmailStore {
   emails: EmailMessage[];
   currentEmail: EmailMessage | null;
-  dailyReport: DailyReport | null;
+  dailyReport: DailyReportResponse | null;
   categories: string[];
   isLoading: boolean;
   error: string | null;
   // Actions
   setEmails: (emails: EmailMessage[]) => void;
   setCurrentEmail: (email: EmailMessage | null) => void;
-  setDailyReport: (report: DailyReport | null) => void;
+  setDailyReport: (report: DailyReportResponse | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   fetchEmails: () => Promise<void>;

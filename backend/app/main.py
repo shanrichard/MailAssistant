@@ -5,13 +5,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-import socketio
-
 from .core.config import settings
 from .core.database import create_tables
 from .core.logging import get_logger
-from .api import auth, gmail, scheduler, agents
-from .socketio_app import sio
+from .api import auth, gmail, agents, reports
+import socketio
+from .socketio_app import socket_app, get_active_sessions_count, sio
+from .utils.cleanup_tasks import cleanup_manager
 
 logger = get_logger(__name__)
 
@@ -30,30 +30,24 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to create database tables", error=str(e))
         raise
     
-    # Start task scheduler
+    # Start cleanup tasks
     try:
-        from .scheduler import start_scheduler
-        await start_scheduler()
-        logger.info("Task scheduler started successfully")
+        await cleanup_manager.start()
+        logger.info("Cleanup tasks started successfully")
     except Exception as e:
-        logger.error("Failed to start task scheduler", error=str(e))
-        # 调度器启动失败不影响应用运行
-        pass
+        logger.error("Failed to start cleanup tasks", error=str(e))
     
     yield
     
     # Shutdown
     logger.info("Shutting down MailAssistant application")
     
-    # Stop task scheduler
+    # Stop cleanup tasks
     try:
-        from .scheduler import stop_scheduler
-        await stop_scheduler()
-        logger.info("Task scheduler stopped successfully")
+        await cleanup_manager.stop()
+        logger.info("Cleanup tasks stopped successfully")
     except Exception as e:
-        logger.error("Failed to stop task scheduler", error=str(e))
-        # 关闭失败不影响应用关闭
-        pass
+        logger.error("Failed to stop cleanup tasks", error=str(e))
 
 
 # Create FastAPI app
@@ -98,22 +92,24 @@ async def health_check():
 
 # Include routers
 
-# 注意：僵死任务清理已集成到主调度器中，不再需要独立的清理调度器
-# @app.on_event("startup") 和 @app.on_event("shutdown") 事件已移除
-
 app.include_router(auth.router, prefix="/api")
 app.include_router(gmail.router, prefix="/api")
-app.include_router(scheduler.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 
 # Debug endpoints (only in development)
 if settings.environment == "development":
     from .api import debug_logs
     app.include_router(debug_logs.router)
 
-# WebSocket functionality is handled by Socket.IO
-# The /ws endpoint has been removed in favor of Socket.IO
-
+# Socket.IO 状态端点
+@app.get("/api/socket/status")
+async def socket_status():
+    """Socket.IO 状态检查"""
+    return {
+        "active_connections": get_active_sessions_count(),
+        "status": "running"
+    }
 
 # Root endpoint
 @app.get("/")
@@ -125,16 +121,15 @@ async def root():
         "docs": "/docs"
     }
 
+# Socket.IO 集成 - 在最后包装整个应用
+app = socketio.ASGIApp(sio, other_asgi_app=app)
 
-# Mount Socket.IO on FastAPI
-socket_app = socketio.ASGIApp(sio, app)
 
 if __name__ == "__main__":
     import uvicorn
-    # When running directly, use the socket_app (includes both FastAPI and Socket.IO)
     uvicorn.run(
-        socket_app,
+        app,
         host=settings.host,
         port=settings.port,
-        reload=False  # Disable reload when running directly
+        reload=False
     )

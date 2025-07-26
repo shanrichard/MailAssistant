@@ -1,15 +1,12 @@
-"""
-对话处理工具 - 使用LangChain @tool装饰器
-"""
+
 import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date, timedelta
-from langchain.tools import Tool  # 需要Tool类来包装函数给ConversationHandler使用
+from langchain.tools import Tool, StructuredTool  # 需要Tool类来包装函数给ConversationHandler使用
 
 from ..core.logging import get_logger
 from ..models.email import Email
 from ..models.daily_report import DailyReport
-from ..models.user_preference import UserPreference
 from ..services.gmail_service import gmail_service
 
 logger = get_logger(__name__)
@@ -17,45 +14,102 @@ logger = get_logger(__name__)
 def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, Any]):
     """创建对话处理工具集"""
     
-    def search_email_history(query: str, limit: int = 10) -> str:
-        """搜索历史邮件。
+    def search_email_history(
+        query: Optional[str] = None,
+        days_back: Optional[int] = None,
+        sender: Optional[str] = None,
+        is_read: Optional[bool] = None,
+        has_attachments: Optional[bool] = None,
+        limit: int = 20
+    ) -> str:
+        """搜索历史邮件，支持多种搜索条件。
         
         Args:
-            query: 搜索关键词，可以是主题、发件人或内容关键词
-            limit: 返回结果数量限制，默认10
+            query: 搜索关键词，在主题、发件人或内容中搜索
+            days_back: 搜索最近多少天的邮件
+            sender: 发件人邮箱或名称筛选
+            is_read: 是否已读（True=已读，False=未读，None=全部）
+            has_attachments: 是否有附件
+            limit: 返回结果数量限制，默认20
             
         Returns:
             搜索结果的JSON字符串
         """
         try:
-            # 简单的关键词搜索
-            emails = db_session.query(Email).filter(
-                Email.user_id == user_id,
-                (Email.subject.contains(query) | 
-                 Email.sender.contains(query) | 
-                 Email.body_plain.contains(query))
-            ).order_by(Email.received_at.desc()).limit(limit).all()
+            # 构建基础查询
+            query_builder = db_session.query(Email).filter(Email.user_id == user_id)
             
+            # 时间范围筛选
+            if days_back is not None:
+                from_date = datetime.now() - timedelta(days=days_back)
+                query_builder = query_builder.filter(Email.received_at >= from_date)
+            
+            # 关键词搜索 - 使用大小写不敏感的 ilike
+            if query:
+                query_builder = query_builder.filter(
+                    (Email.subject.ilike(f'%{query}%') | 
+                     Email.sender.ilike(f'%{query}%') | 
+                     Email.body_plain.ilike(f'%{query}%'))
+                )
+            
+            # 发件人筛选 - 使用大小写不敏感的 ilike
+            if sender:
+                query_builder = query_builder.filter(Email.sender.ilike(f'%{sender}%'))
+            
+            # 已读/未读筛选
+            if is_read is not None:
+                query_builder = query_builder.filter(Email.is_read == is_read)
+            
+            # 附件筛选
+            if has_attachments is not None:
+                query_builder = query_builder.filter(Email.has_attachments == has_attachments)
+            
+            # 执行查询，按时间降序排序
+            emails = query_builder.order_by(Email.received_at.desc()).limit(limit).all()
+            
+            # 构建结果
             results = []
+            sender_stats = {}  # 统计发件人
+            
             for email in emails:
                 results.append({
                     "id": str(email.id),
                     "subject": email.subject,
                     "sender": email.sender,
                     "received_at": email.received_at.isoformat(),
-                    "snippet": email.body_plain[:200] + "..." if len(email.body_plain) > 200 else email.body_plain
+                    "is_read": email.is_read,
+                    "is_important": email.is_important,
+                    "has_attachments": email.has_attachments,
+                    "snippet": email.body_plain[:200] + "..." if email.body_plain and len(email.body_plain) > 200 else email.body_plain
                 })
+                
+                # 统计发件人
+                if email.sender not in sender_stats:
+                    sender_stats[email.sender] = 0
+                sender_stats[email.sender] += 1
             
+            # 构建响应
             result = {
                 "status": "success",
-                "query": query,
+                "search_params": {
+                    "query": query,
+                    "days_back": days_back,
+                    "sender": sender,
+                    "is_read": is_read,
+                    "has_attachments": has_attachments
+                },
                 "results_count": len(results),
-                "results": results
+                "results": results,
+                "sender_summary": sorted(
+                    [{"sender": k, "count": v} for k, v in sender_stats.items()],
+                    key=lambda x: x["count"],
+                    reverse=True
+                )[:10]  # 只返回前10个发件人
             }
             
             logger.info("Email search completed", 
                        user_id=user_id, 
-                       query=query,
+                       search_params=result["search_params"],
                        results_count=len(results))
             
             return json.dumps(result, ensure_ascii=False)
@@ -63,7 +117,6 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
         except Exception as e:
             logger.error("Email search failed", 
                         user_id=user_id, 
-                        query=query, 
                         error=str(e))
             return json.dumps({
                 "status": "error",
@@ -172,18 +225,15 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 emails_to_mark = emails
                 
             elif "不重要" in criteria:
-                # 查找不重要邮件（重要性评分低于0.3）
-                from ..models.email_analysis import EmailAnalysis
-                low_importance_analyses = db_session.query(EmailAnalysis).filter(
-                    EmailAnalysis.user_id == user_id,
-                    EmailAnalysis.importance_score < 0.3
-                ).limit(100).all()
-                
-                email_ids = [a.email_id for a in low_importance_analyses]
+                # 查找可能不重要的邮件（基于常见模式）
                 emails = db_session.query(Email).filter(
                     Email.user_id == user_id,
-                    Email.id.in_(email_ids)
-                ).all()
+                    (Email.subject.contains("通知") |
+                     Email.subject.contains("newsletter") |
+                     Email.subject.contains("marketing") |
+                     Email.sender.contains("no-reply") |
+                     Email.sender.contains("notification"))
+                ).limit(100).all()
                 emails_to_mark = emails
                 
             else:
@@ -247,42 +297,88 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"批量标记失败：{str(e)}"
             }, ensure_ascii=False)
     
-    def update_user_preferences(preference_description: str, preference_type: str = "important") -> str:
+    def get_user_preferences() -> str:
+        """获取用户的邮件处理偏好。
+        
+        Returns:
+            用户偏好的JSON字符串，包含自然语言描述
+        """
+        try:
+            from ..models.user import User
+            user = db_session.query(User).filter(User.id == user_id).first()
+            
+            if not user or not user.preferences_text:
+                # 默认偏好
+                default_preferences = """我希望重点关注以下类型的邮件：
+1. 直接发给我的邮件（我是主要收件人，不是抄送）
+2. 包含商业机会、合作意向的邮件
+3. 来自重要联系人的邮件
+
+我不太关注以下类型的邮件：
+1. 群发的通知邮件
+2. 营销推广邮件
+3. 仅作为抄送的邮件
+4. 自动生成的系统通知"""
+                
+                return json.dumps({
+                    "preferences": default_preferences,
+                    "has_preferences": False,
+                    "message": "使用默认偏好设置"
+                }, ensure_ascii=False)
+            
+            return json.dumps({
+                "preferences": user.preferences_text,
+                "has_preferences": True,
+                "last_updated": user.updated_at.isoformat() if user.updated_at else None
+            }, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error("Failed to get user preferences", 
+                        user_id=user_id, 
+                        error=str(e))
+            return json.dumps({
+                "status": "error",
+                "message": f"获取偏好失败：{str(e)}"
+            }, ensure_ascii=False)
+    
+    def update_user_preferences(preference_description: str) -> str:
         """更新用户偏好设置。
         
         Args:
-            preference_description: 偏好描述，如"来自GitHub的通知很重要"
-            preference_type: 偏好类型，可以是"important"、"unimportant"或"schedule"
+            preference_description: 偏好的自然语言描述
             
         Returns:
             更新结果的JSON字符串
         """
         try:
-            # 创建新的偏好记录
-            new_preference = UserPreference(
-                user_id=user_id,
-                preference_type=preference_type,
-                preference_key="auto_generated",
-                preference_value="auto_generated",
-                natural_description=preference_description,
-                priority_level=3 if preference_type == "important" else 1,
-                is_active=True
-            )
+            from ..models.user import User
+            user = db_session.query(User).filter(User.id == user_id).first()
             
-            db_session.add(new_preference)
+            if not user:
+                return json.dumps({
+                    "status": "error",
+                    "message": "用户不存在"
+                }, ensure_ascii=False)
+            
+            # 如果已有偏好，追加新的；否则直接设置
+            if user.preferences_text:
+                # 添加时间戳和新偏好
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                user.preferences_text += f"\n\n[{timestamp}] 更新的偏好：\n{preference_description}"
+            else:
+                user.preferences_text = preference_description
+            
             db_session.commit()
             
             result = {
                 "status": "success",
-                "message": "偏好设置已更新",
-                "preference_type": preference_type,
-                "description": preference_description,
-                "created_at": datetime.now().isoformat()
+                "message": "偏好已更新",
+                "preferences": user.preferences_text,
+                "updated_at": datetime.now().isoformat()
             }
             
             logger.info("User preference updated", 
                        user_id=user_id, 
-                       preference_type=preference_type,
                        description=preference_description)
             
             return json.dumps(result, ensure_ascii=False)
@@ -412,35 +508,40 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
     
     # 将函数包装成Tool对象，保持与ConversationHandler的兼容性
     tools = [
-        Tool(
+        StructuredTool.from_function(
+            func=search_email_history,
             name="search_email_history",
-            description=search_email_history.__doc__ or "搜索历史邮件",
-            func=search_email_history
+            description="搜索历史邮件，支持多种搜索条件。可以按关键词、时间范围、发件人、已读状态、附件等条件搜索。例如：搜索最近3天的邮件用days_back=3，搜索某人的邮件用sender参数，搜索未读邮件用is_read=False。"
         ),
-        Tool(
-            name="read_daily_report", 
-            description=read_daily_report.__doc__ or "读取指定日期的日报",
-            func=read_daily_report
+        StructuredTool.from_function(
+            func=read_daily_report,
+            name="read_daily_report",
+            description=read_daily_report.__doc__ or "读取指定日期的日报"
         ),
-        Tool(
+        StructuredTool.from_function(
+            func=bulk_mark_read,
             name="bulk_mark_read",
-            description=bulk_mark_read.__doc__ or "批量标记邮件为已读",
-            func=bulk_mark_read
+            description=bulk_mark_read.__doc__ or "批量标记邮件为已读"
         ),
-        Tool(
+        StructuredTool.from_function(
+            func=get_user_preferences,
+            name="get_user_preferences",
+            description=get_user_preferences.__doc__ or "获取用户的邮件处理偏好"
+        ),
+        StructuredTool.from_function(
+            func=update_user_preferences,
             name="update_user_preferences",
-            description=update_user_preferences.__doc__ or "更新用户偏好设置",
-            func=update_user_preferences
+            description=update_user_preferences.__doc__ or "更新用户偏好设置"
         ),
-        Tool(
+        StructuredTool.from_function(
+            func=trigger_email_processor,
             name="trigger_email_processor",
-            description=trigger_email_processor.__doc__ or "触发EmailProcessor执行特定任务",
-            func=trigger_email_processor
+            description=trigger_email_processor.__doc__ or "触发EmailProcessor执行特定任务"
         ),
-        Tool(
+        StructuredTool.from_function(
+            func=get_task_status,
             name="get_task_status",
-            description=get_task_status.__doc__ or "查询任务状态",
-            func=get_task_status
+            description=get_task_status.__doc__ or "查询任务状态"
         )
     ]
     
