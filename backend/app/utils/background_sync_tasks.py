@@ -76,33 +76,38 @@ class BackgroundSyncTasks:
     
     async def _perform_auto_sync(self):
         """执行自动同步"""
+        logger.info("Starting auto sync for all active users")
+        
+        sync_count = 0
+        error_count = 0
+        
+        # 首先获取所有活跃用户ID，然后关闭会话
         db = SessionLocal()
         try:
-            logger.info("Starting auto sync for all active users")
-            
-            # 获取所有活跃用户
-            active_users = db.query(User).filter(User.is_active == True).all()
-            
-            sync_count = 0
-            error_count = 0
-            
-            for user in active_users:
-                try:
-                    # 使用优化的智能增量同步
-                    stats = email_sync_service.smart_sync_user_emails_optimized(db, user)
-                    logger.info(f"Auto sync completed for user {user.id}: {stats}")
-                    sync_count += 1
-                except Exception as e:
-                    logger.error(f"Auto sync failed for user {user.id}: {e}")
-                    error_count += 1
-            
-            logger.info(f"Auto sync completed: {sync_count} users synced, {error_count} errors")
-            
-        except Exception as e:
-            logger.error(f"Error in auto sync: {e}", exc_info=True)
-            db.rollback()
+            active_user_ids = [user.id for user in db.query(User).filter(User.is_active == True).all()]
         finally:
             db.close()
+        
+        # 为每个用户创建独立的数据库会话
+        for user_id in active_user_ids:
+            user_db = SessionLocal()
+            try:
+                user = user_db.query(User).filter(User.id == user_id).first()
+                if not user:
+                    continue
+                    
+                # 使用优化的智能增量同步
+                stats = email_sync_service.smart_sync_user_emails_optimized(user_db, user)
+                logger.info(f"Auto sync completed for user {user.id}: {stats}")
+                sync_count += 1
+            except Exception as e:
+                logger.error(f"Auto sync failed for user {user_id}: {e}")
+                error_count += 1
+                user_db.rollback()
+            finally:
+                user_db.close()
+        
+        logger.info(f"Auto sync completed: {sync_count} users synced, {error_count} errors")
     
     async def request_manual_sync(self, user_id: str, sync_type: str):
         """请求手动同步（非阻塞）"""
@@ -129,19 +134,21 @@ class BackgroundSyncTasks:
     
     async def _execute_manual_sync(self, sync_request: Dict[str, Any]):
         """执行手动同步请求"""
+        user_id = sync_request['user_id']
+        sync_type = sync_request['sync_type']
+        
+        logger.info(f"Executing manual sync: {sync_request}")
+        
+        # 为每个同步请求创建独立的数据库会话
         db = SessionLocal()
         try:
-            user_id = sync_request['user_id']
-            sync_type = sync_request['sync_type']
-            
-            logger.info(f"Executing manual sync: {sync_request}")
-            
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"User {user_id} not found for manual sync")
                 return
             
             # 根据同步类型执行相应的同步
+            # 使用新的分页同步方法，避免内存溢出
             if sync_type == 'today':
                 stats = email_sync_service.sync_emails_by_timerange(db, user, "today", 500)
             elif sync_type == 'week':
@@ -155,7 +162,7 @@ class BackgroundSyncTasks:
             logger.info(f"Manual sync {sync_type} completed for user {user_id}: {stats}")
             
         except Exception as e:
-            logger.error(f"Manual sync execution failed for user {sync_request.get('user_id')}: {e}", exc_info=True)
+            logger.error(f"Manual sync execution failed for user {user_id}: {e}", exc_info=True)
             db.rollback()
         finally:
             db.close()

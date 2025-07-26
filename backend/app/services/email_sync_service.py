@@ -819,8 +819,9 @@ class EmailSyncService:
                     monitor.end_stage('commit')
                     pending_count = 0
                     
-                    # 清理ORM会话缓存
-                    db.expire_all()
+                    # 清理ORM会话缓存，但只清理不再需要的对象
+                    # 不使用expire_all()，避免过度清理导致额外的数据库查询
+                    db.flush()
                 
                 # 5. 智能内存管理
                 current_memory = process.memory_info().rss / 1024 / 1024
