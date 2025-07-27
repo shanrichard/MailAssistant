@@ -510,8 +510,9 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             # 限制最大值
             limit = min(limit, 40)
             
-            # 从 user_context 获取 user 对象
-            user = user_context.get("user")
+            # 从数据库重新获取 user 对象，避免会话过期问题
+            from ..models.user import User
+            user = db_session.query(User).filter(User.id == user_id).first()
             if not user:
                 return json.dumps({
                     "status": "error",
