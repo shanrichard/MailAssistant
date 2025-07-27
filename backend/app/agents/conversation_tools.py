@@ -107,7 +107,9 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "is_important": email.is_important,
                     "has_attachments": email.has_attachments,
                     "body": email.body_plain[:body_limit] + "..." if email.body_plain and len(email.body_plain) > body_limit else email.body_plain,  # 改名并增加长度
-                    "body_truncated": len(email.body_plain) > body_limit if email.body_plain else False  # 新增：标记是否被截断
+                    "body_truncated": len(email.body_plain) > body_limit if email.body_plain else False,  # 新增：标记是否被截断
+                    "body_html": email.body_html[:body_limit] + "..." if email.body_html and len(email.body_html) > body_limit else email.body_html,  # 新增：HTML正文
+                    "body_html_truncated": len(email.body_html) > body_limit if email.body_html else False  # 新增：标记HTML是否被截断
                 })
                 
                 # 统计发件人
@@ -549,7 +551,9 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "is_important": 'IMPORTANT' in gmail_msg.get('labels', []),
                     "has_attachments": gmail_msg.get('has_attachments', False),
                     "body": gmail_msg.get('body_plain', '')[:1000] + "..." if gmail_msg.get('body_plain') and len(gmail_msg.get('body_plain', '')) > 1000 else gmail_msg.get('body_plain', ''),
-                    "body_truncated": len(gmail_msg.get('body_plain', '')) > 1000 if gmail_msg.get('body_plain') else False
+                    "body_truncated": len(gmail_msg.get('body_plain', '')) > 1000 if gmail_msg.get('body_plain') else False,
+                    "body_html": gmail_msg.get('body_html', '')[:1000] + "..." if gmail_msg.get('body_html') and len(gmail_msg.get('body_html', '')) > 1000 else gmail_msg.get('body_html', ''),
+                    "body_html_truncated": len(gmail_msg.get('body_html', '')) > 1000 if gmail_msg.get('body_html') else False
                 }
                 results.append(result_item)
                 
@@ -668,6 +672,12 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
 - has_attachments: 是否有附件(布尔值: True/False)
 - offset: 分页偏移量(整数，默认0)
 
+返回字段说明：
+- body: 纯文本正文(最多1000字符)
+- body_truncated: 纯文本正文是否被截断
+- body_html: HTML格式正文(最多1000字符)
+- body_html_truncated: HTML正文是否被截断
+
 调用示例：
 - search_email_history(days_back=3) - 搜索最近3天所有邮件（每页50条）
 - search_email_history(query="invoice", days_back=7) - 搜索最近7天包含invoice的邮件
@@ -675,7 +685,7 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
 - search_email_history(days_back=30, offset=50) - 搜索最近30天，获取第51-100条记录
 - search_email_history() - 获取最新的50封邮件
 
-注意：不要使用位置参数，必须明确指定参数名。"""
+注意：不要使用位置参数，必须明确指定参数名。如果body为空，请检查body_html字段，某些邮件只有HTML版本。"""
         ),
         StructuredTool.from_function(
             func=read_daily_report,
@@ -758,6 +768,12 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
 - query: Gmail 搜索查询字符串(必需)，使用 Gmail 搜索语法
 - limit: 返回结果数量限制(可选)，默认40，最大40
 
+返回字段说明：
+- body: 纯文本正文(最多1000字符)
+- body_truncated: 纯文本正文是否被截断
+- body_html: HTML格式正文(最多1000字符)
+- body_html_truncated: HTML正文是否被截断
+
 Gmail 搜索语法示例：
 - from:sender@example.com - 搜索特定发件人
 - to:me - 发给我的邮件
@@ -777,7 +793,7 @@ Gmail 搜索语法示例：
 - search_gmail_online(query="subject:sofa after:2025/5/1 before:2025/6/1")
 - search_gmail_online(query="is:unread has:attachment")
 
-注意：必须使用关键字参数调用，如 query="..." 而不是直接传字符串。"""
+注意：必须使用关键字参数调用，如 query="..." 而不是直接传字符串。如果body为空，请检查body_html字段，某些邮件只有HTML版本。"""
         )
     ]
     
