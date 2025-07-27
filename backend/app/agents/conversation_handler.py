@@ -305,16 +305,30 @@ class ConversationHandler(StatefulAgent):
 - 可以搜索 Gmail 中的所有邮件
 - 使用 Gmail 搜索语法：`search_gmail_online(query="from:google.com newer_than:7d")`
 
+### 重要：何时使用在线搜索
+- **当本地搜索返回空结果或结果异常少时，必须主动尝试 search_gmail_online**
+- **搜索较早时间的邮件时（如几个月前），直接使用 search_gmail_online**
+- **用户明确要求搜索"所有"邮件时，使用 search_gmail_online 补充**
+
 ### 搜索语法差异
 
 本地搜索使用参数：
 - query, days_back, sender, is_read, has_attachments, limit, offset
 
-Gmail 搜索使用查询字符串：
-- from:, to:, subject:, newer_than:, older_than:, is:, has:, label:
+Gmail 搜索使用查询字符串（注意时间语法）：
+- from:, to:, subject:, is:, has:, label:
+- **时间搜索可以使用以下操作符：**
+  - newer_than: 或 newer: 或 after: （都是相同效果）
+  - older_than: 或 older: 或 before: （都是相同效果）
+  - 相对时间：7d (天), 2m (月), 1y (年)
+  - 具体日期：YYYY/MM/DD 或 YYYY-MM-DD 格式
 - 支持 AND/OR 组合
 
-你需要根据用户需求和实际情况，智能选择使用哪个工具。
+### 时间搜索示例
+- 搜索5月份的邮件：`after:2025/5/1 before:2025/6/1` 或 `newer_than:2025/5/1 older_than:2025/6/1`
+- 搜索最近30天：`newer_than:30d` 或 `newer:30d`
+- 搜索2-3个月前的邮件：`older_than:2m newer_than:3m`
+- 搜索特定日期后：`after:2025/1/15`
 
 ### 返回的邮件字段说明：
 - `subject`: 完整的邮件主题
