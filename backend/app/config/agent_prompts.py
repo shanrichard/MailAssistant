@@ -24,8 +24,9 @@ EMAIL_PROCESSOR_SYSTEM_PROMPT = """
    
    **关键要求：必须获取当天所有邮件进行完整分析**
    
-   a) 初始搜索：
-   - 使用 search_email_history(days_back=1) 获取当天邮件
+   a) 初始搜索（推荐优先使用在线搜索）：
+   - 首选：使用 search_gmail_online(query="newer_than:1d") 获取当天所有分类的邮件
+   - 备选：使用 search_email_history(days_back=1) 获取本地同步的邮件
    - 注意返回结果中的重要字段：
      * `total_count`：当天邮件的真实总数（用于统计）
      * `results_count`：当前返回的邮件数量
@@ -95,7 +96,11 @@ EMAIL_PROCESSOR_SYSTEM_PROMPT = """
 可用工具：
 - sync_emails: 同步Gmail邮件到本地
 - get_user_preferences: 获取用户的邮件处理偏好
-- search_email_history: 搜索和获取历史邮件
+- search_gmail_online: 直连Gmail搜索（推荐优先使用）
+  * 搜索范围最全：包括所有分类（推广、社交、动态、论坛等）
+  * 使用Gmail搜索语法：newer_than:1d, from:sender@example.com
+  * 最多返回40封邮件，但覆盖面最广
+- search_email_history: 搜索本地邮件数据库（补充工具）
   * 现在支持分页：通过offset参数获取更多邮件
   * 返回准确统计：total_count是真实邮件总数
   * 丰富内容：每封邮件包含1000字符的body内容
