@@ -20,8 +20,8 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
         sender: Optional[str] = None,
         is_read: Optional[bool] = None,
         has_attachments: Optional[bool] = None,
-        limit: int = 50,  # 从20改为50
-        offset: int = 0   # 新增offset参数支持分页
+        offset: int = 0,  # offset参数支持分页
+        **kwargs  # 保持向后兼容，接受但忽略其他参数
     ) -> str:
         """搜索历史邮件，支持多种搜索条件和分页。
         
@@ -31,15 +31,14 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             sender: 发件人邮箱或名称筛选
             is_read: 是否已读（True=已读，False=未读，None=全部）
             has_attachments: 是否有附件
-            limit: 返回结果数量限制，默认50，最大100
             offset: 分页偏移量，默认0（从第几条开始）
             
         Returns:
-            搜索结果的JSON字符串
+            搜索结果的JSON字符串，每页固定返回50条记录
         """
         try:
-            # 限制最大值防止过大请求
-            limit = min(limit, 100)
+            # 固定每页返回50条记录
+            limit = 50
             
             # 使用窗口函数在一次查询中获取总数和结果
             from sqlalchemy import func
@@ -125,8 +124,7 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "sender": sender,
                     "is_read": is_read,
                     "has_attachments": has_attachments,
-                    "limit": limit,  # 新增
-                    "offset": offset  # 新增
+                    "offset": offset  # 分页偏移量
                 },
                 "results_count": len(results),
                 "total_count": total_count,  # 新增：符合条件的总数
@@ -144,18 +142,8 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             if total_count > 200:
                 result["warning"] = f"共找到{total_count}封邮件，建议缩小搜索范围以获得更精确的结果"
             
-            # 添加响应大小检查
+            # 直接返回结果，不再进行大小检查
             result_json = json.dumps(result, ensure_ascii=False)
-            if len(result_json) > 80000:  # 约20k tokens
-                # 返回错误而不是大量数据
-                return json.dumps({
-                    "status": "error",
-                    "message": "搜索结果数据量过大，请缩小搜索范围或使用分页",
-                    "total_count": total_count,
-                    "current_limit": limit,
-                    "suggested_limit": 30,
-                    "data_size": f"{len(result_json)/1000:.1f}KB"
-                }, ensure_ascii=False)
             
             logger.info("Email search completed", 
                        user_id=user_id, 
@@ -677,14 +665,13 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
 - sender: 发件人筛选(字符串)
 - is_read: 是否已读(布尔值: True/False)
 - has_attachments: 是否有附件(布尔值: True/False)
-- limit: 返回数量限制(整数，默认50，最大100)
 - offset: 分页偏移量(整数，默认0)
 
 调用示例：
-- search_email_history(days_back=3) - 搜索最近3天所有邮件
+- search_email_history(days_back=3) - 搜索最近3天所有邮件（每页50条）
 - search_email_history(query="invoice", days_back=7) - 搜索最近7天包含invoice的邮件
 - search_email_history(sender="google.com", is_read=False) - 搜索来自google.com的未读邮件
-- search_email_history(days_back=30, limit=100, offset=0) - 搜索最近30天，获取前100封
+- search_email_history(days_back=30, offset=50) - 搜索最近30天，获取第51-100条记录
 - search_email_history() - 获取最新的50封邮件
 
 注意：不要使用位置参数，必须明确指定参数名。"""
@@ -774,8 +761,10 @@ Gmail 搜索语法示例：
 - from:sender@example.com - 搜索特定发件人
 - to:me - 发给我的邮件
 - subject:invoice - 主题包含invoice
-- newer_than:7d - 最近7天
-- older_than:1y - 1年前
+- newer_than:7d 或 newer:7d - 最近7天
+- older_than:1y 或 older:1y - 1年前
+- after:2025/5/1 或 after:2025-05-01 - 特定日期之后
+- before:2025/6/1 或 before:2025-06-01 - 特定日期之前
 - is:unread - 未读邮件
 - has:attachment - 有附件
 - from:google.com OR from:microsoft.com - OR逻辑
@@ -784,7 +773,10 @@ Gmail 搜索语法示例：
 调用示例：
 - search_gmail_online(query="from:google.com newer_than:7d")
 - search_gmail_online(query="subject:合同 older_than:6m", limit=20)
-- search_gmail_online(query="is:unread has:attachment")"""
+- search_gmail_online(query="subject:sofa after:2025/5/1 before:2025/6/1")
+- search_gmail_online(query="is:unread has:attachment")
+
+注意：必须使用关键字参数调用，如 query="..." 而不是直接传字符串。"""
         )
     ]
     
