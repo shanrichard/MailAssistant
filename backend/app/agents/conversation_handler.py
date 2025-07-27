@@ -8,7 +8,7 @@ import json
 from threading import Lock
 import asyncio
 
-from langchain.tools import Tool
+from langchain.tools import Tool, StructuredTool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
@@ -113,7 +113,8 @@ class ConversationHandler(StatefulAgent):
                 }
         
         # 创建新的工具实例，保留原有属性
-        return Tool(
+        # 使用 StructuredTool 以正确处理多参数函数
+        return StructuredTool(
             name=tool.name,
             description=tool.description,
             func=sync_wrapper,
