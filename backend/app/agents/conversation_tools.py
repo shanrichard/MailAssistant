@@ -562,17 +562,55 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
         StructuredTool.from_function(
             func=search_email_history,
             name="search_email_history",
-            description="搜索历史邮件，支持多种搜索条件。可以按关键词、时间范围、发件人、已读状态、附件等条件搜索。例如：搜索最近3天的邮件用days_back=3，搜索某人的邮件用sender参数，搜索未读邮件用is_read=False。"
+            description="""搜索历史邮件的工具。所有参数都是可选的，必须使用参数名=值的形式调用。
+
+调用格式：search_email_history(参数名1=值1, 参数名2=值2, ...)
+
+可用参数：
+- query: 搜索关键词(字符串)
+- days_back: 搜索最近N天(整数)
+- sender: 发件人筛选(字符串)
+- is_read: 是否已读(布尔值: True/False)
+- has_attachments: 是否有附件(布尔值: True/False)
+- limit: 返回数量限制(整数，默认50，最大100)
+- offset: 分页偏移量(整数，默认0)
+
+调用示例：
+- search_email_history(days_back=3) - 搜索最近3天所有邮件
+- search_email_history(query="invoice", days_back=7) - 搜索最近7天包含invoice的邮件
+- search_email_history(sender="google.com", is_read=False) - 搜索来自google.com的未读邮件
+- search_email_history(days_back=30, limit=100, offset=0) - 搜索最近30天，获取前100封
+- search_email_history() - 获取最新的50封邮件
+
+注意：不要使用位置参数，必须明确指定参数名。"""
         ),
         StructuredTool.from_function(
             func=read_daily_report,
             name="read_daily_report",
-            description=read_daily_report.__doc__ or "读取指定日期的日报"
+            description="""读取指定日期的日报。
+
+调用格式：read_daily_report(report_date_str="YYYY-MM-DD")
+
+参数说明：
+- report_date_str: 日期字符串(可选)，格式为"YYYY-MM-DD"，不指定则读取今日日报
+
+调用示例：
+- read_daily_report() - 读取今天的日报
+- read_daily_report(report_date_str="2025-07-14") - 读取指定日期的日报"""
         ),
         StructuredTool.from_function(
             func=bulk_mark_read,
             name="bulk_mark_read",
-            description=bulk_mark_read.__doc__ or "批量标记邮件为已读"
+            description="""批量标记邮件为已读。
+
+调用格式：bulk_mark_read(criteria="条件描述")
+
+参数说明：
+- criteria: 标记条件(必需)，使用自然语言描述，如"广告邮件"、"营销邮件"、"不重要邮件"等
+
+调用示例：
+- bulk_mark_read(criteria="广告邮件") - 标记所有广告邮件为已读
+- bulk_mark_read(criteria="newsletter") - 标记所有newsletter为已读"""
         ),
         StructuredTool.from_function(
             func=get_user_preferences,
@@ -582,12 +620,34 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
         StructuredTool.from_function(
             func=update_user_preferences,
             name="update_user_preferences",
-            description=update_user_preferences.__doc__ or "更新用户偏好设置"
+            description="""更新用户偏好设置。
+
+调用格式：update_user_preferences(preference_description="偏好描述")
+
+参数说明：
+- preference_description: 偏好的自然语言描述(必需)
+
+调用示例：
+- update_user_preferences(preference_description="我重视来自客户的邮件，不关心营销邮件")
+- update_user_preferences(preference_description="请将技术相关的邮件标记为重要")"""
         ),
         StructuredTool.from_function(
             func=trigger_email_processor,
             name="trigger_email_processor",
-            description=trigger_email_processor.__doc__ or "触发EmailProcessor执行特定任务"
+            description="""触发EmailProcessor执行特定任务。
+
+调用格式：trigger_email_processor(action="动作名", parameters=参数字典)
+
+参数说明：
+- action: 要执行的动作(必需)，可选值：
+  - "generate_daily_report": 生成日报
+  - "batch_analyze_emails": 批量分析邮件
+- parameters: 动作参数(可选)，字典格式
+
+调用示例：
+- trigger_email_processor(action="generate_daily_report") - 生成今天的日报
+- trigger_email_processor(action="generate_daily_report", parameters={"date": "2025-07-14"}) - 生成指定日期的日报
+- trigger_email_processor(action="batch_analyze_emails", parameters={"days": 3}) - 分析最近3天的邮件"""
         ),
         StructuredTool.from_function(
             func=get_task_status,
