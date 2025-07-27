@@ -500,6 +500,111 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 "message": f"触发EmailProcessor失败：{str(e)}"
             }, ensure_ascii=False)
     
+    def search_gmail_online(
+        query: str,
+        limit: int = 40
+    ) -> str:
+        """直连 Gmail 搜索邮件。
+        
+        使用 Gmail 搜索语法，例如：
+        - "from:google.com newer_than:1d"
+        - "subject:invoice is:unread"
+        - "has:attachment older_than:30d"
+        
+        Args:
+            query: Gmail 搜索查询字符串
+            limit: 返回结果数量限制，默认40，最大40
+            
+        Returns:
+            搜索结果的JSON字符串，格式与 search_email_history 一致
+        """
+        try:
+            # 限制最大值
+            limit = min(limit, 40)
+            
+            # 从 user_context 获取 user 对象
+            user = user_context.get("user")
+            if not user:
+                return json.dumps({
+                    "status": "error",
+                    "message": "用户未授权 Gmail 访问"
+                }, ensure_ascii=False)
+            
+            # 使用 gmail_service 搜索
+            logger.info("Gmail online search started", 
+                       user_id=user_id, 
+                       query=query,
+                       limit=limit)
+            
+            # 调用优化版搜索方法
+            gmail_messages = gmail_service.search_messages_optimized(
+                user=user,
+                query=query,
+                max_results=limit
+            )
+            
+            # 构建结果
+            results = []
+            sender_stats = {}
+            
+            for gmail_msg in gmail_messages:
+                # 转换为统一格式
+                result_item = {
+                    "id": gmail_msg.get('gmail_id', ''),
+                    "subject": gmail_msg.get('subject', ''),
+                    "sender": gmail_msg.get('sender', ''),
+                    "recipients": gmail_msg.get('recipients', []),
+                    "cc_recipients": gmail_msg.get('cc_recipients', []),
+                    "received_at": gmail_msg.get('received_at').isoformat() if gmail_msg.get('received_at') else '',
+                    "is_read": 'UNREAD' not in gmail_msg.get('labels', []),
+                    "is_important": 'IMPORTANT' in gmail_msg.get('labels', []),
+                    "has_attachments": gmail_msg.get('has_attachments', False),
+                    "body": gmail_msg.get('body_plain', '')[:1000] + "..." if gmail_msg.get('body_plain') and len(gmail_msg.get('body_plain', '')) > 1000 else gmail_msg.get('body_plain', ''),
+                    "body_truncated": len(gmail_msg.get('body_plain', '')) > 1000 if gmail_msg.get('body_plain') else False
+                }
+                results.append(result_item)
+                
+                # 统计发件人
+                sender = gmail_msg.get('sender', '')
+                if sender and sender not in sender_stats:
+                    sender_stats[sender] = 0
+                sender_stats[sender] += 1
+            
+            # 构建响应
+            result = {
+                "status": "success",
+                "search_params": {
+                    "query": query,
+                    "limit": limit,
+                    "search_method": "gmail_online"
+                },
+                "results_count": len(results),
+                "total_count": len(results),  # Gmail API 不提供准确总数
+                "has_more": False,  # 简化处理，不支持分页
+                "results": results,
+                "sender_summary": sorted(
+                    [{"sender": k, "count": v} for k, v in sender_stats.items()],
+                    key=lambda x: x["count"],
+                    reverse=True
+                )[:10]
+            }
+            
+            logger.info("Gmail online search completed", 
+                       user_id=user_id, 
+                       results_count=len(results))
+            
+            return json.dumps(result, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error("Gmail online search failed", 
+                        user_id=user_id, 
+                        query=query, 
+                        error=str(e))
+            return json.dumps({
+                "status": "error",
+                "message": f"Gmail 搜索失败：{str(e)}"
+            }, ensure_ascii=False)
+    
     def get_task_status(task_type: str = "all") -> str:
         """查询任务状态。
         
@@ -653,6 +758,33 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             func=get_task_status,
             name="get_task_status",
             description=get_task_status.__doc__ or "查询任务状态"
+        ),
+        StructuredTool.from_function(
+            func=search_gmail_online,
+            name="search_gmail_online",
+            description="""直连 Gmail 搜索邮件。
+
+调用格式：search_gmail_online(query="Gmail搜索查询", limit=40)
+
+参数说明：
+- query: Gmail 搜索查询字符串(必需)，使用 Gmail 搜索语法
+- limit: 返回结果数量限制(可选)，默认40，最大40
+
+Gmail 搜索语法示例：
+- from:sender@example.com - 搜索特定发件人
+- to:me - 发给我的邮件
+- subject:invoice - 主题包含invoice
+- newer_than:7d - 最近7天
+- older_than:1y - 1年前
+- is:unread - 未读邮件
+- has:attachment - 有附件
+- from:google.com OR from:microsoft.com - OR逻辑
+- subject:report is:unread - 组合条件
+
+调用示例：
+- search_gmail_online(query="from:google.com newer_than:7d")
+- search_gmail_online(query="subject:合同 older_than:6m", limit=20)
+- search_gmail_online(query="is:unread has:attachment")"""
         )
     ]
     
