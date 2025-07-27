@@ -20,9 +20,10 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
         sender: Optional[str] = None,
         is_read: Optional[bool] = None,
         has_attachments: Optional[bool] = None,
-        limit: int = 20
+        limit: int = 50,  # 从20改为50
+        offset: int = 0   # 新增offset参数支持分页
     ) -> str:
-        """搜索历史邮件，支持多种搜索条件。
+        """搜索历史邮件，支持多种搜索条件和分页。
         
         Args:
             query: 搜索关键词，在主题、发件人或内容中搜索
@@ -30,23 +31,33 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             sender: 发件人邮箱或名称筛选
             is_read: 是否已读（True=已读，False=未读，None=全部）
             has_attachments: 是否有附件
-            limit: 返回结果数量限制，默认20
+            limit: 返回结果数量限制，默认50，最大100
+            offset: 分页偏移量，默认0（从第几条开始）
             
         Returns:
             搜索结果的JSON字符串
         """
         try:
-            # 构建基础查询
-            query_builder = db_session.query(Email).filter(Email.user_id == user_id)
+            # 限制最大值防止过大请求
+            limit = min(limit, 100)
+            
+            # 使用窗口函数在一次查询中获取总数和结果
+            from sqlalchemy import func
+            
+            # 构建带窗口函数的查询
+            query_with_count = db_session.query(
+                Email,
+                func.count().over().label('total_count')
+            ).filter(Email.user_id == user_id)
             
             # 时间范围筛选
             if days_back is not None:
                 from_date = datetime.now() - timedelta(days=days_back)
-                query_builder = query_builder.filter(Email.received_at >= from_date)
+                query_with_count = query_with_count.filter(Email.received_at >= from_date)
             
             # 关键词搜索 - 使用大小写不敏感的 ilike
             if query:
-                query_builder = query_builder.filter(
+                query_with_count = query_with_count.filter(
                     (Email.subject.ilike(f'%{query}%') | 
                      Email.sender.ilike(f'%{query}%') | 
                      Email.body_plain.ilike(f'%{query}%'))
@@ -54,33 +65,50 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
             
             # 发件人筛选 - 使用大小写不敏感的 ilike
             if sender:
-                query_builder = query_builder.filter(Email.sender.ilike(f'%{sender}%'))
+                query_with_count = query_with_count.filter(Email.sender.ilike(f'%{sender}%'))
             
             # 已读/未读筛选
             if is_read is not None:
-                query_builder = query_builder.filter(Email.is_read == is_read)
+                query_with_count = query_with_count.filter(Email.is_read == is_read)
             
             # 附件筛选
             if has_attachments is not None:
-                query_builder = query_builder.filter(Email.has_attachments == has_attachments)
+                query_with_count = query_with_count.filter(Email.has_attachments == has_attachments)
             
             # 执行查询，按时间降序排序
-            emails = query_builder.order_by(Email.received_at.desc()).limit(limit).all()
+            results_with_count = query_with_count.order_by(Email.received_at.desc())\
+                .limit(limit)\
+                .offset(offset)\
+                .all()
+            
+            # 提取总数和邮件列表
+            if results_with_count:
+                total_count = results_with_count[0].total_count
+                emails = [row.Email for row in results_with_count]
+            else:
+                total_count = 0
+                emails = []
             
             # 构建结果
             results = []
             sender_stats = {}  # 统计发件人
             
             for email in emails:
+                # 固定返回1000字符正文，足够AI分析
+                body_limit = 1000
+                
                 results.append({
                     "id": str(email.id),
                     "subject": email.subject,
                     "sender": email.sender,
+                    "recipients": email.recipients,  # 新增：收件人
+                    "cc_recipients": email.cc_recipients,  # 新增：抄送人
                     "received_at": email.received_at.isoformat(),
                     "is_read": email.is_read,
                     "is_important": email.is_important,
                     "has_attachments": email.has_attachments,
-                    "snippet": email.body_plain[:200] + "..." if email.body_plain and len(email.body_plain) > 200 else email.body_plain
+                    "body": email.body_plain[:body_limit] + "..." if email.body_plain and len(email.body_plain) > body_limit else email.body_plain,  # 改名并增加长度
+                    "body_truncated": len(email.body_plain) > body_limit if email.body_plain else False  # 新增：标记是否被截断
                 })
                 
                 # 统计发件人
@@ -96,9 +124,14 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                     "days_back": days_back,
                     "sender": sender,
                     "is_read": is_read,
-                    "has_attachments": has_attachments
+                    "has_attachments": has_attachments,
+                    "limit": limit,  # 新增
+                    "offset": offset  # 新增
                 },
                 "results_count": len(results),
+                "total_count": total_count,  # 新增：符合条件的总数
+                "has_more": total_count > offset + len(results),  # 新增：是否还有更多
+                "next_offset": offset + len(results) if total_count > offset + len(results) else None,  # 新增
                 "results": results,
                 "sender_summary": sorted(
                     [{"sender": k, "count": v} for k, v in sender_stats.items()],
@@ -107,12 +140,30 @@ def create_conversation_tools(user_id: str, db_session, user_context: Dict[str, 
                 )[:10]  # 只返回前10个发件人
             }
             
+            # 如果结果过多，添加提示
+            if total_count > 200:
+                result["warning"] = f"共找到{total_count}封邮件，建议缩小搜索范围以获得更精确的结果"
+            
+            # 添加响应大小检查
+            result_json = json.dumps(result, ensure_ascii=False)
+            if len(result_json) > 80000:  # 约20k tokens
+                # 返回错误而不是大量数据
+                return json.dumps({
+                    "status": "error",
+                    "message": "搜索结果数据量过大，请缩小搜索范围或使用分页",
+                    "total_count": total_count,
+                    "current_limit": limit,
+                    "suggested_limit": 30,
+                    "data_size": f"{len(result_json)/1000:.1f}KB"
+                }, ensure_ascii=False)
+            
             logger.info("Email search completed", 
                        user_id=user_id, 
                        search_params=result["search_params"],
-                       results_count=len(results))
+                       results_count=len(results),
+                       total_count=total_count)  # 新增日志
             
-            return json.dumps(result, ensure_ascii=False)
+            return result_json
             
         except Exception as e:
             logger.error("Email search failed", 
