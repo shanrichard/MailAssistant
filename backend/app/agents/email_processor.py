@@ -113,8 +113,13 @@ class EmailProcessorAgent(BaseAgent):
         """获取温度参数"""
         return settings.agents.email_processor_temperature
     
-    def _build_prompt_for_langgraph(self, state: Dict, config: Dict) -> List[BaseMessage]:
-        """构建LangGraph使用的prompt消息列表"""
+    def _build_prompt_for_langgraph(self, state: Dict, config: Dict = None) -> List[BaseMessage]:
+        """构建LangGraph使用的prompt消息列表
+        
+        Args:
+            state: LangGraph状态，包含messages等信息
+            config: 可选的配置参数（新版本可能不传递此参数）
+        """
         system_prompt = self._build_system_prompt_content()
         messages = state.get("messages", [])
         return [SystemMessage(content=system_prompt)] + messages

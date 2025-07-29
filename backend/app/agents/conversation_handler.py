@@ -175,8 +175,13 @@ class ConversationHandler(StatefulAgent):
             lambda: InMemorySaver()
         )
     
-    def _build_prompt(self, state: Dict, config: Dict) -> List[BaseMessage]:
-        """构建包含系统提示的消息列表"""
+    def _build_prompt(self, state: Dict, config: Dict = None) -> List[BaseMessage]:
+        """构建包含系统提示的消息列表
+        
+        Args:
+            state: LangGraph状态，包含messages等信息
+            config: 可选的配置参数（新版本可能不传递此参数）
+        """
         system_prompt = self._build_system_prompt_for_graph()
         messages = state.get("messages", [])
         
